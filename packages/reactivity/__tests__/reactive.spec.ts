@@ -1,5 +1,5 @@
-import { ref } from '../src/ref';
-import { effect } from '../src/effect';
+import { ref } from '../src/ref.js';
+import { effect } from '../src/effect.js';
 import { describe, expect, it } from 'vitest';
 
 describe('ref', () => {

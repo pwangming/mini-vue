@@ -1,7 +1,7 @@
 import { track, trigger } from './effect.js'
 
-export function reactive(obj: any) {
-  const proxyObj = new Proxy(obj, handler);
+export function reactive(target: any) {
+  const proxyObj = new Proxy(target, handler);
 
   // 递归 第一次就创建所有的深层对象的 proxy，会造成巨大的性能浪费。
 
@@ -25,14 +25,51 @@ export function reactive(obj: any) {
 }
 
 const handler = {
-  get: function(obj: any, prop: string) {
-    track(obj, prop);
-    return Reflect.get(obj, prop);
+  get: function(target: any, prop: string) {
+    track(target, prop);
+    return Reflect.get(target, prop);
   },
-  set: function(obj: any, prop: string, value: any) {
+  set: function(target: any, prop: string, value: any) {
     // 先 Reflect.set 再 trigger(), 先更新值，再更新视图
-    Reflect.set(obj, prop, value);
-    trigger(obj, prop);
+    Reflect.set(target, prop, value);
+    trigger(target, prop);
     return true;
   }
 }
+
+// export function reactive(target: any) {
+//   return createLazyDeepProxy(target, lazyHandler);
+// }
+
+function createLazyDeepProxy(obj: any, handler: any): any {
+  return new Proxy(obj, {
+    get(target, prop, receiver) {
+      // console.log(`GET: ${String(prop)} accessed.`);
+      const value = Reflect.get(target, prop, receiver);
+      // 只有当获取到的值是对象时，才在返回前用代理包装它
+      if (typeof value === 'object' && value !== null) {
+        // 为了避免无限递归，我们可以给代理对象加个标记
+        return createLazyDeepProxy(value, handler);
+      }
+      return value;
+    },
+    set(target, prop, value, receiver) {
+      // console.log(`SET: ${String(prop)} set to ${value}.`);
+      // 如果设置的值是对象，先包装成代理
+      const newValue = (typeof value === 'object' && value !== null) ? createLazyDeepProxy(value, handler) : value;
+      return Reflect.set(target, prop, newValue, receiver);
+    }
+  });
+}
+
+const lazyHandler = {
+  get(target: any, prop: string) {
+    track(target, prop);
+    return Reflect.get(target, prop);
+  },
+  set(target: any, prop: string, value: any) {
+    Reflect.set(target, prop, value);
+    trigger(target, prop);
+    return true
+  }
+};

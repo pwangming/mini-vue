@@ -1,22 +1,21 @@
 {
-  "name": "mini-vue-reactivity",
+  "name": "mini-vue-monorepo",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
-  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc -w",
-    "test": "vitest",
-    "test:watch": "vitest --watch"
+    "test": "vitest"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.14.0",
+  "packageManager": "pnpm@10.15.0",
   "devDependencies": {
-    "jsdom": "^26.1.0",
-    "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
+    "@types/node": "^24.3.0",
+    "jsdom": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

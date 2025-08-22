@@ -1,0 +1,9 @@
+# pnpm-workspace.yaml
+packages:
+  - 'packages/*'
+
+catalog:
+  # 将所有公共依赖的版本固定在这里
+  'vitest': ^3.2.4
+  'jsdom': ^26.1.0
+  'typescript': ^5.9.2

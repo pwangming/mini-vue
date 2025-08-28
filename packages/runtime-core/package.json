@@ -1,11 +1,11 @@
 {
-  "name": "@mini-vue/reactivity",
+  "name": "@mini-vue/runtime-core",
   "version": "1.0.0",
   "type": "module",
-  "main": "dist/reactivity.cjs.js",
-  "module": "dist/reactivity.esm-bundler.js",
+  "main": "dist/runtime-core.cjs.js",
+  "module": "dist/runtime-core.esm-bundler.js",
   "buildOptions": {
-    "name": "VueReactivity"
+    "name": "VueRuntime"
   },
   "scripts": {
     "build": "tsc",

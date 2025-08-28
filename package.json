@@ -6,15 +6,27 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "vitest"
+    "test": "vitest",
+    "build": "tsc && rollup -c",
+    "dev:reactivity": "node scripts/dev.js reactivity -f global",
+    "dev:runtime": "node scripts/dev.js runtime-core -f global",
+    "dev:compiler": "node scripts/dev.js compiler -f global"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.15.0",
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^28.0.6",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.1",
     "@types/node": "^24.3.0",
+    "esbuild": "^0.25.9",
+    "execa": "^9.6.0",
     "jsdom": "catalog:",
+    "minimist": "^1.2.8",
+    "rollup": "^4.49.0",
+    "rollup-plugin-typescript2": "^0.36.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

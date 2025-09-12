@@ -13,7 +13,8 @@
     "strict": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "removeComments": true
+    "removeComments": true,
+    "composite": true
   },
   "include": [
     "src"

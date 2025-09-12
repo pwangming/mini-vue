@@ -12,29 +12,32 @@
   <script src="./packages/runtime-core/dist/runtime-core.global.js"></script>
   <script>
 
-    const count = VueReactivity.ref(0);
+    const { ref, computed, effect, watch } = VueReactivity;
+    const { h, renderer } = VueRuntime;
+
+    const count = ref(0);
 
     const increment = () => {
       count.value++;
     };
 
-    const newCount = VueReactivity.computed(() => {
+    const newCount = computed(() => {
       return count.value * 2;
     })
 
 
 
-    VueReactivity.effect(() => {
-      VueRuntime.renderer.render(VueRuntime.h(
+    effect(() => {
+      renderer.render(h(
         'div', 
         null, 
-        [VueRuntime.h('p', null, `count is: ${count.value}`), 
-        VueRuntime.h('p', null, `computed newCount is: ${newCount.value}`),
-        VueRuntime.h('button', { onClick: increment }, 'Add')]), 
+        [h('p', null, `count is: ${count.value}`), 
+        h('p', null, `computed newCount is: ${newCount.value}`),
+        h('button', { onClick: increment }, 'Add')]), 
         document.getElementById('app'))
     })
 
-    VueReactivity.watch(count, () => {
+    watch(count, () => {
       console.log(count.value);
     })
   </script>

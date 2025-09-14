@@ -4,8 +4,15 @@
   "type": "module",
   "main": "dist/reactivity.cjs.js",
   "module": "dist/reactivity.esm-bundler.js",
+  "types": "dist/index.d.ts",
   "buildOptions": {
     "name": "VueReactivity"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/reactivity.esm-bundler.js",
+      "require": "./dist/reactivity.cjs.js"
+    }
   },
   "scripts": {
     "build": "tsc",

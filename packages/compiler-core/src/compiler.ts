@@ -1,3 +1,6 @@
+import { transform } from "./transform.js";
+import { generate } from "./generate.js";
+
 // 根据 WHATWG 规范给出的几种状态
 const TextModes = {
   DATA: 'DATA',
@@ -370,4 +373,11 @@ function parseText(context: Context) {
     type: 'Text',
     content
   }
+}
+
+export function compiler(templateStr: string) {
+  const ast = parse(templateStr)
+  transform(ast)
+  const code = generate(ast.jsNode);
+  return code;
 }

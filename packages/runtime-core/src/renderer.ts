@@ -224,6 +224,7 @@ export function createRenderer(options: any) {
 
   return {
     render,
+    patch,
     hydrate
   }
 }

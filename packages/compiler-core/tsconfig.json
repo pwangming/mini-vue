@@ -3,6 +3,7 @@
   "compilerOptions": {
     "rootDir": ".",
     "outDir": "./dist",
+    "declarationDir": "./dist",  // ✅ 指定 .d.ts 文件输出目录
     "declaration": true,
     "declarationMap": true,
     "emitDeclarationOnly": false,

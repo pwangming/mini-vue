@@ -41,8 +41,8 @@
     "moduleDetection": "force",
     "skipLibCheck": true,
   },
-  "include": ["packages/*/src"],
-  "exclude": ["node_modules", "dist", "packages/*/node_modules"],
+  "include": ["packages/*/src", "packages/runtime-core/index.d.ts"],
+  "exclude": ["node_modules", "dist", "packages/*/node_modules", "**/dist"],
   "references": [
     { "path": "./packages/reactivity" },
     { "path": "./packages/runtime-core" },

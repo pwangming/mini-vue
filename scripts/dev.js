@@ -11,9 +11,9 @@ const format = args.f || 'global'
 // 打包的入口文件。每个模块的 src/index.ts 作为该模块的入口文件
 const entry = path.resolve(__dirname, `../packages/${target}/src/index.ts`)
 // 打包文件的输出格式
-const outputFormat = format.startsWith('global') ? 'iife' : format === 'cjs' ? 'cjs' : 'esm'
+const outputFormat = format?.startsWith('global') ? 'iife' : format === 'cjs' ? 'cjs' : 'esm'
 // 文件输出路径。输出到模块目录下的 dist 目录下，并以各自的模块规范为后缀名作为区分
-const outfile = path.resolve(__dirname, `../packages/${target}/dist/${target}.${format}.js`)
+const outfile = path.resolve(__dirname, `../packages/${target}/dist/${target}.${format === 'esm' ? 'esm-bundler' : format}.js`)
 // 读取模块的 package.json，它包含了一些打包时需要用到的配置信息
 const pkg = require(path.resolve(__dirname, `../packages/${target}/package.json`))
 // buildOptions.name 是模块打包为 IIFE 格式时的全局变量名字

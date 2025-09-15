@@ -8,6 +8,10 @@
   "buildOptions": {
     "name": "VueReactivity"
   },
+  "files": [
+    "dist",
+    "package.json"
+  ],
   "exports": {
     ".": {
       "import": "./dist/reactivity.esm-bundler.js",

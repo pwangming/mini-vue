@@ -246,7 +246,7 @@ function parseAttributes(context: Context) {
     // 该正则用于匹配属性名称
     const match = /^[^\t\r\n\f />][^\t\r\n\f />=]*/.exec(context.source) as any[];
     // 得到属性名称
-    const name = match[0];
+    let name = match[0];
     // 消费属性名称
     advanceBy(name.length);
     // 消费空格
@@ -290,6 +290,12 @@ function parseAttributes(context: Context) {
     // 消费属性值后的空白节点
     advanceSpaces();
     // 创建一个属性节点，添加到 props 数组中
+    if (/^@/.test(name)) {
+      name = name.replace('@', 'on');
+    }
+    if (/^v-on/.test(name)) {
+      name = name.replace('v-on:', 'on');
+    }
     props.push({
       type: 'Attribute',
       name,

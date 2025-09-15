@@ -40,6 +40,9 @@
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
+    "paths": {
+      "@mini-vue3/*": ["./packages/*/src"]
+  },
   },
   "include": ["packages/*/src", "packages/runtime-core/index.d.ts"],
   "exclude": ["node_modules", "dist", "packages/*/node_modules", "**/dist"],
@@ -47,5 +50,5 @@
     { "path": "./packages/reactivity" },
     { "path": "./packages/runtime-core" },
     { "path": "./packages/compiler-core" }
-  ]
+  ],
 }

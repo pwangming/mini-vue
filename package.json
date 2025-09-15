@@ -12,7 +12,8 @@
     "dev:runtime": "node scripts/dev.js runtime-core -f global",
     "dev:compiler": "node scripts/dev.js compiler-core -f global",
     "dev:reactivity-esm": "node scripts/dev.js reactivity -f esm",
-    "dev:compiler-esm": "node scripts/dev.js compiler-core -f esm"
+    "dev:compiler-esm": "node scripts/dev.js compiler-core -f esm",
+    "dev:runtime-esm": "node scripts/dev.js runtime-core -f esm"
   },
   "keywords": [],
   "author": "",

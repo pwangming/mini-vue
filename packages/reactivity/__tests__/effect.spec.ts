@@ -1,7 +1,6 @@
 import { ref } from '../src/ref.js';
 import { effect } from '../src/effect.js';
 import { computed } from '../src/computed.js';
-import { flushJobs, queueJob } from '../src/scheduler.js';
 import { describe, expect, it, vi } from 'vitest';
 
 describe('ref', () => {
@@ -196,6 +195,13 @@ describe('ref', () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
+  // 模拟 queueJob 函数
+  function queueJob(job: Function) {
+    Promise.resolve().then(() => {
+      job();
+    });
+  }
+
   // 使用 await Promise.resolve() 来等待微任务
   it('should run effect in next microtask', async () => {
     const fn = vi.fn();
@@ -203,11 +209,11 @@ describe('ref', () => {
     const scheduler = (job: Function) => queue.push(job);
 
     // 模拟 queueJob 函数
-    function queueJob(job: Function) {
-      Promise.resolve().then(() => {
-        job();
-      });
-    }
+    // function queueJob(job: Function) {
+    //   Promise.resolve().then(() => {
+    //     job();
+    //   });
+    // }
 
     effect(fn, { scheduler: queueJob });
 

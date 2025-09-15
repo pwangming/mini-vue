@@ -56,6 +56,9 @@ function genNode(node: any, context: any) {
     case 'Expression':
       genExpression(node, context);
       break;
+    case 'Attribute':
+      genAttribute(node, context);
+      break;
   }
 }
 
@@ -136,4 +139,21 @@ function genExpression(node: any, context: any) {
   push('`${');
   push(`${node.value}`);
   push('}`');
-} 
+}
+
+function genAttribute(node: any, context: any) {
+  const { push } = context;
+  if (node.value === null) {
+    push('null');
+  } else {
+    push('{')
+    for(let i = 0; i < node.value.length; i++) {
+      push(` ${node.value[i].name}:`);
+      push(` ${node.value[i].value}`);
+      if (i !== node.value.length - 1) {
+        push(`,`)
+      }
+    }
+    push(' }')
+  }
+}

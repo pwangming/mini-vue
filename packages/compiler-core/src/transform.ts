@@ -120,6 +120,7 @@ function transformElement(node: any, context: any) {
     const callExp = createCallExpression('h', [
       createStringLiteral(node.tag)
     ])
+    callExp.args.push({ type: 'Attribute', value: node.props.length === 0 ? null : node.props });
     // 2、 处理 h 函数的调用参数
     node.children.length === 1
       // 如果当前标签只有一个子节点，直接使用子节点的 jsNode 为参数

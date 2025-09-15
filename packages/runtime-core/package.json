@@ -7,6 +7,10 @@
   "buildOptions": {
     "name": "VueRuntime"
   },
+  "files": [
+    "dist",
+    "package.json"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "vitest",

@@ -6,40 +6,57 @@
   <title>Document</title>
 </head>
 <body>
-  <div id="app"></div>
+  <div id="app"><p>{{ message }}</p></div>
 
   <script src="./packages/reactivity/dist/reactivity.global.js"></script>
   <script src="./packages/runtime-core/dist/runtime-core.global.js"></script>
+  <script src="./packages/compiler-core/dist/compiler-core.global.js"></script>
   <script>
 
-    const { ref, computed, effect, watch } = VueReactivity;
-    const { h, renderer } = VueRuntime;
+    const { createApp } = VueRuntime;
+    const { ref } = VueReactivity;
 
-    const count = ref(0);
+    createApp({
+      setup() {
+        const message = ref('Hello World!');
+        const changeMessage = () => {
+          message.value = 'Hello mini vue!'
+        }
+        return {
+          message,
+          changeMessage
+        };
+      }
+    }).mount('#app');
 
-    const increment = () => {
-      count.value++;
-    };
+    // const { ref, computed, effect, watch } = VueReactivity;
+    // const { h, renderer } = VueRuntime;
 
-    const newCount = computed(() => {
-      return count.value * 2;
-    })
+    // const count = ref(0);
+
+    // const increment = () => {
+    //   count.value++;
+    // };
+
+    // const newCount = computed(() => {
+    //   return count.value * 2;
+    // })
 
 
 
-    effect(() => {
-      renderer.render(h(
-        'div', 
-        null, 
-        [h('p', null, `count is: ${count.value}`), 
-        h('p', null, `computed newCount is: ${newCount.value}`),
-        h('button', { onClick: increment }, 'Add')]), 
-        document.getElementById('app'))
-    })
+    // effect(() => {
+    //   renderer.render(h(
+    //     'div', 
+    //     null, 
+    //     [h('p', null, `count is: ${count.value}`), 
+    //     h('p', null, `computed newCount is: ${newCount.value}`),
+    //     h('button', { onClick: increment }, 'Add')]), 
+    //     document.getElementById('app'))
+    // })
 
-    watch(count, () => {
-      console.log(count.value);
-    })
+    // watch(count, () => {
+    //   console.log(count.value);
+    // })
   </script>
 </body>
 </html>

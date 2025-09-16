@@ -49,10 +49,10 @@ export function createApp(rootComponent: any) {
         const subTree = instance.render(h,
           // 将 setupState 作为参数传递给 render 函数
           instance.setupState.message
-        )();
+        );
         console.log('subTree', subTree)
         // 调用 patch 进行渲染或更新
-        renderer.render(subTree, container);
+        renderer.render(subTree(), container);
         // 更新 subTree 的引用
         // instance.subTree = subTree;
       }, {

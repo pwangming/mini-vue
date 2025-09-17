@@ -18,7 +18,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.16.0",
+  "packageManager": "pnpm@10.16.1",
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.6",
     "@rollup/plugin-json": "^6.1.0",

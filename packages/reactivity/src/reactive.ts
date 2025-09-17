@@ -15,11 +15,11 @@ export function reactive(target: any) {
   // * 如果返回值是一个普通对象，Vue 会调用一个内部函数（类似于 reactive 或 shallowReactive）立即将这个对象也转换成一个响应式对象（即创建一个新的 Proxy）。
   // * 然后，这个新创建的响应式对象（Proxy）会被返回。
   // * 这个过程是“惰性”的，因为嵌套对象的代理是在你第一次访问它时才创建的，而不是在初始化 state 时就为所有层级创建。
-  for (let key in proxyObj) {
-    if (proxyObj.hasOwnProperty(key) && typeof proxyObj[key] === 'object' && proxyObj[key] !== null) {
-      proxyObj[key] = reactive(proxyObj[key]);
-    }
-  }
+  // for (let key in proxyObj) {
+  //   if (proxyObj.hasOwnProperty(key) && typeof proxyObj[key] === 'object' && proxyObj[key] !== null) {
+  //     proxyObj[key] = reactive(proxyObj[key]);
+  //   }
+  // }
 
   return proxyObj;
 }
@@ -27,7 +27,11 @@ export function reactive(target: any) {
 const handler = {
   get: function(target: any, prop: string) {
     track(target, prop);
-    return Reflect.get(target, prop);
+    const res = Reflect.get(target, prop)
+    if (typeof res === 'object' && res !== null) {
+      return reactive(res)
+    }
+    return res;
   },
   set: function(target: any, prop: string, value: any) {
     // 先 Reflect.set 再 trigger(), 先更新值，再更新视图

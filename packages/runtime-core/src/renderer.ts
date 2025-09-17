@@ -96,6 +96,7 @@ export function createRenderer(options: any) {
   const { createElement, setElementText, insert, createText, setText, patchProps } = options;
   // 渲染函数
   function render(vnode: any, container: any) {
+    console.log('render', vnode)
     if (vnode) {
       // 挂载或更新
       patch(container._vnode, vnode, container)
@@ -149,6 +150,7 @@ export function createRenderer(options: any) {
     }
 
     const { type } = n2;
+    console.log('type', type);
     if (typeof type === 'string') {
       if (!n1) {
         // 旧的不存在，意味着是挂载
@@ -315,51 +317,106 @@ export function createRenderer(options: any) {
     // 通过 vnode.type 获取组件的选项对象
     const componentOptions = vnode.type;
     // 获取组件的渲染函数
-    const { render, data, beforeCreated, created, beforeMount, mounted, beforeUpdate, updated } = componentOptions;
+    let { render, data, setup, props: propsOptions,
+      beforeCreated, created, beforeMount, mounted, beforeUpdate, updated } = componentOptions;
     // 这里调用 beforeCreated 钩子
     beforeCreated && beforeCreated();
 
-    const state = reactive(data());
+    const state = data ? reactive(data()) : null;
+
+    const [props, attrs] = resolveProps(propsOptions, vnode.props);
     // 组件实例本质上就是一个状态集合（或一个对象）​，它维护着组件运行过程中的所有信息，
     // 例如注册到组件的生命周期函数、组件渲染的子树（subTree）​、组件是否已经被挂载、组件自身的状态（data）​，等等。
     // 为了解决关于组件更新的问题，我们需要引入组件实例的概念，以及与之相关的状态信息
     const instance = {
       // 组件自身状态数据
       state, 
+      // 将 props 包装为 shallowReactive 并定义到组件实例上
+      // props: shallowReactive(props),
+      props: props,
       // 一个布尔值，表示组件是否已被挂载，初始值为 false
       isMounted: false,
       // 组件所渲染的内容，即子树 subTree
       subTree: null
     }
 
+    // setupContext, 还可以有 emit 和 slots
+    const setupContext = { attrs };
+    // 调用 setup 函数，将只读版本的 props 作为第一个参数，避免用户修改 props ，将 setupContext 作为第二个参数传递
+    // const setupResult = setup(shallowReactive(instance.props), setupContext);
+    const setupResult = setup(instance.props, setupContext);
+    // 用来存储 setup 的返回值
+    let setupState = null;
+    // 如果 setup 函数返回的是函数，则视为渲染函数
+    if (typeof setupResult === 'function') {
+      // 报告冲突
+      if (render) console.error('setup 函数返回渲染函数，render选项被忽略');
+      // 将 setupResult 作为渲染函数
+      render = setupResult;
+    } else {
+      // 如果返回值不是函数，则作为数据状态赋值给 setupState
+      setupState = setupResult;
+    }
+
     vnode.component = instance;
+    // 由于 props 数据与组件自身的状态数据都需要暴露到渲染函数中，
+    // 并使得渲染函数能够通过 this 访问它们，因此我们需要封装一个渲染上下文对象，
+    // 创建渲染上下文对象，本质时组件的实例的代理
+    const renderContext = new Proxy(instance, {
+      get(t, k, r) {
+        // 取得组件的自身状态和 props
+        const { state, props } = t;
+        if (state && k in state ) {
+          return state[k];
+        } else if (k in props) {
+          return props[k];
+        } else if (setupState && k in setupState) {
+          return setupState[k];
+        } else {
+          console.error('不存在');
+        }
+      },
+      set(t, k, v, r) {
+        const { state, props } = t;
+        if (state && k in state) {
+          state[k] = v;
+        } else if (k in props) {
+          console.warn(`Attempting to mutate prop "${String(k)}". Props are readonly`);
+        } else if (setupState && k in setupState) {
+          setupState[k] = v;
+        } else {
+          console.error('不存在');
+        }
+        return true;
+      }
+    })
 
     // 这里调用 created 钩子
-    created && created.call(state);
+    created && created.call(renderContext);
 
     // 执行渲染函数，获取组件的渲染内容，即 render 函数返回的虚拟 DOM.
     // 调用 render 函数时，将 this 设置为 state，从而可以在 render 函数内部使用 this 访问组件自身状态数据
     // 当组件自身状态发生变化时，我们需要有能力触发组件更新，即组件的自更新。
     // 为此，我们需要将整个渲染任务包装到一个 effect 中
     effect(() => {
-      const subTree = render.call(state, state);
+      const subTree = render.call(renderContext, renderContext);
       // 检查组件是否被挂载
       if (!instance.isMounted) {
         // 这里调用 beforeMounted 钩子
-        beforeMount && beforeMount.call(state);
+        beforeMount && beforeMount.call(renderContext);
         // 初次挂载，调用 patch 函数 第一个参数传 null 渲染组件
         patch(null, subTree, container, anchor);
         // 将组件的 isMounted 设置为 true，后续就直接更新组件
         instance.isMounted = true;
         // 这里调用 mounted 钩子
-        mounted && mounted.call(state);
+        mounted && mounted.call(renderContext);
       } else {
         // 这里调用 beforeUpdate 钩子
-        beforeUpdate && beforeUpdate.call(state);
+        beforeUpdate && beforeUpdate.call(renderContext);
         // 更新组件，第一个参数为组件上一次渲染的子树
         patch(instance.subTree, subTree, container, anchor);
         // 这里调用 updated 钩子
-        updated && updated.call(state);
+        updated && updated.call(renderContext);
       }
       // 更新组件实例的子树
       instance.subTree = subTree
@@ -368,8 +425,58 @@ export function createRenderer(options: any) {
     })
   }
 
+  function resolveProps(options: any, propsData: any) {
+    const props: any = {};
+    const attrs: any = {};
+    // 遍历组件传递的 props
+    for (const key in propsData) {
+      if (key in options) {
+        // 如果组件传递的 props 数据在组件自身的 props 中有定义，则视为合法 props
+        props[key] = propsData[key];
+      } else {
+        // 否则将其作为 attrs
+        attrs[key] = propsData[key];
+      }
+    }
+    return [ props, attrs ];
+  }
+  // 上面是组件被动更新的最小实现，有两点需要注意：
+  // ● 需要将组件实例添加到新的组件 vnode 对象上，即 n2.component =n1.component，否则下次更新时将无法取得组件实例；
+  // ● instance.props 对象本身是浅响应的（即 shallowReactive）​。因此，在更新组件的 props 时，只需要设置 instance.props 对象下的属性值即可触发组件重新渲染。
+  // 在上面的实现中，我们没有处理 attrs 与 slots 的更新。attrs 的更新本质上与更新props 的原理相似。而对于 slots，我们会在后续章节中讲解。实际上，要完善地实现Vue.js 中的 props 机制，需要编写大量边界代码。
+  // 但本质上来说，其原理都是根据组件的 props 选项定义以及为组件传递的 props 数据来处理的。
   function patchComponent(n1: any, n2: any, anchor: any) {
+    // 获取组件实例 n1.component，同时让新的组件的虚拟节点 n2.component 也指向组件实例 
+    const instance = (n2.component = n1.component);
+    // 获取当前 props
+    const { props } = instance;
+    // 调用 hasPropsChanged 函数检测为子组件传递的 props 是否发生改变，如果没变化不需要更新
+    if (hasPropsChanged(n1.props, n2.props)) {
+      // 调用 resolveProps 重新获取 props
+      const [ nextProps ] = resolveProps(n1.props, n2.props);
+      // 更新 props
+      for(const k in nextProps) {
+        props[k] = nextProps[k];
+      }
+      // 删除不存在的 props
+      for(const k in props) {
+        if (!(k in nextProps)) delete props[k];
+      }
+    }
+  }
 
+  function hasPropsChanged(prevProps: any, nextProps: any) {
+    const nextKeys = Object.keys(nextProps);
+    // 如果新旧 props 的数量变了，说明有变化
+    if (nextKeys.length !== Object.keys(prevProps).length) {
+      return true;
+    }
+    for(let i = 0; i < nextKeys.length; i++) {
+      const key = nextKeys[i];
+      // 有不相等的 porps 说明有变化
+      if (nextProps[key] !== prevProps[key]) return true
+    }
+    return false;
   }
 
   return {

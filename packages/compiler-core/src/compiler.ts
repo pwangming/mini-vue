@@ -385,5 +385,7 @@ export function compiler(templateStr: string) {
   const ast = parse(templateStr)
   transform(ast)
   const code = generate(ast.jsNode);
-  return code;
+  return {
+    code
+  };
 }

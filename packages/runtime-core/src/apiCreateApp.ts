@@ -21,8 +21,13 @@ export function createApp(rootComponent: any) {
       // 注意：render 函数需要能访问到 setupState 中的变量（如 message）
       // 将代码包装成一个立即执行的函数
       const renderFn = new Function(
-        "function render (h, changeMessage, message){\n  return h('p', { onClick: `${ changeMessage }` }, `${ message }`)\n} return render"
+        "function render (h, addCount, count){\n  return h('div', null, [h('p', null, `${count.value}`), h('button', { onClick: addCount }, 'Add')])\n} return render"
       )();
+      // const renderFn = new Function('h', 'setupState', `
+      //   with(setupState) {
+      //     ${"return h('div', null, [h('p', null, `${setupState.count}`), h('button', { onClick: addCount }, 'Add')])"}
+      //   }
+      // `);
       // 调用 setup()，获取 setupState
       const setupResult = rootComponent.setup();
       console.log('setupResult', setupResult);
@@ -41,10 +46,11 @@ export function createApp(rootComponent: any) {
       const updateComponent = effect(() => {
         // 执行 render 函数，生成新的 VNode (subTree)
         // 将 setupState 作为参数传递给 render 函数
-        const subTree = renderFn(h, setupResult.changeMessage, setupResult.message.value);
+        const subTree = renderFn(h, setupResult.addCount, setupResult.count);
         console.log('subTree', subTree)
         // 调用 patch 进行渲染或更新
-        renderer.patch(instance.subTree, subTree, container);
+        renderer.render(subTree, container);
+        // renderer.patch(instance.subTree, subTree, container);
         
         // 更新 subTree 的引用
         instance.subTree = subTree;

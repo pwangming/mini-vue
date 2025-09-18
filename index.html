@@ -6,7 +6,7 @@
   <title>Document</title>
 </head>
 <body>
-  <div id="app"><p>{{ message }}</p></div>
+  <div id="app"><p>{{ count }}</p><button>Add</button></div>
 
   <script src="./packages/reactivity/dist/reactivity.global.js"></script>
   <script src="./packages/runtime-core/dist/runtime-core.global.js"></script>
@@ -14,17 +14,23 @@
   <script>
 
     const { createApp } = VueRuntime;
-    const { ref } = VueReactivity;
+    const { ref, watch } = VueReactivity;
 
     createApp({
       setup() {
-        const message = ref('Hello World!');
-        const changeMessage = () => {
-          message.value = 'Hello mini vue!'
+        const count = ref(0);
+        const addCount = () => {
+          console.log(count);
+          count.value++;
         }
+
+        watch(count, () => {
+          console.log(count);
+        })
+
         return {
-          message,
-          changeMessage
+          count,
+          addCount
         };
       }
     }).mount('#app');

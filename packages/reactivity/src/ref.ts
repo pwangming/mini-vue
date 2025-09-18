@@ -47,6 +47,7 @@ class RefImpl<T = any> {
   }
 
   get value() {
+    console.log('track');
     track(this, 'value')
     return this._value;
   }
@@ -57,6 +58,7 @@ class RefImpl<T = any> {
       this._value = newval;
       this._rawValue = newval
     }
+    console.log('trigger');
     trigger(this, 'value')
   }
 }

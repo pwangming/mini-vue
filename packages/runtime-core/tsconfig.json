@@ -16,7 +16,5 @@
     "removeComments": true,
     "composite": true
   },
-  "include": [
-    "src"
-, "index.d.ts"  ]
+  "include": ["src", "index.d.ts"  ]
 }

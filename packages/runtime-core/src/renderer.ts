@@ -1,5 +1,6 @@
 import { reactive, effect } from '@mini-vue/reactivity'
 import { queueJob } from './scheduler.js';
+import { createAppAPI } from './apiCreateApp.js';
 // 通过传入一个对象，可以实现自定义渲染器，不依赖于特定的浏览器API
 export const renderer = createRenderer({
   createElement(tag: string) {
@@ -484,6 +485,7 @@ export function createRenderer(options: any) {
   return {
     render,
     patch,
-    hydrate
+    hydrate,
+    createApp: createAppAPI(render),
   }
 }

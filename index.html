@@ -11,9 +11,10 @@
   <script src="./packages/reactivity/dist/reactivity.global.js"></script>
   <script src="./packages/runtime-core/dist/runtime-core.global.js"></script>
   <script src="./packages/compiler-core/dist/compiler-core.global.js"></script>
+  <script src="./packages/runtime-dom/dist/runtime-dom.global.js"></script>
   <script>
 
-    const { createApp } = VueRuntime;
+    const { createApp } = VueRuntimeDom;
     const { ref, watch } = VueReactivity;
 
     createApp({

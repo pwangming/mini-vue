@@ -1,0 +1,29 @@
+{
+  "name": "@mini-vue/shared",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/shared.cjs.js",
+  "module": "dist/shared.esm-bundler.js",
+  "types": "dist/index.d.ts",
+  "buildOptions": {
+    "name": "VueShared"
+  },
+  "files": [
+    "dist",
+    "package.json"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/shared.esm-bundler.js",
+      "require": "./dist/shared.cjs.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest",
+    "test:watch": "vitest --watch"
+  },
+  "devDependencies": {
+
+  }
+}

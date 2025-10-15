@@ -1,5 +1,7 @@
 import { track, trigger } from './effect.js'
 
+const ITERATE_KEY = Symbol();
+
 export function reactive(target: any) {
   const proxyObj = new Proxy(target, handler);
 
@@ -25,55 +27,27 @@ export function reactive(target: any) {
 }
 
 const handler = {
-  get: function(target: any, prop: string) {
+  get: function(target: any, prop: string, receiver: any) {
     track(target, prop);
-    const res = Reflect.get(target, prop)
+    const res = Reflect.get(target, prop, receiver)
     if (typeof res === 'object' && res !== null) {
       return reactive(res)
     }
     return res;
   },
-  set: function(target: any, prop: string, value: any) {
+  set: function(target: any, prop: string, value: any, receiver: any) {
     // 先 Reflect.set 再 trigger(), 先更新值，再更新视图
-    Reflect.set(target, prop, value);
+    Reflect.set(target, prop, value, receiver);
     trigger(target, prop);
     return true;
-  }
-}
-
-// export function reactive(target: any) {
-//   return createLazyDeepProxy(target, lazyHandler);
-// }
-
-function createLazyDeepProxy(obj: any, handler: any): any {
-  return new Proxy(obj, {
-    get(target, prop, receiver) {
-      // console.log(`GET: ${String(prop)} accessed.`);
-      const value = Reflect.get(target, prop, receiver);
-      // 只有当获取到的值是对象时，才在返回前用代理包装它
-      if (typeof value === 'object' && value !== null) {
-        // 为了避免无限递归，我们可以给代理对象加个标记
-        return createLazyDeepProxy(value, handler);
-      }
-      return value;
-    },
-    set(target, prop, value, receiver) {
-      // console.log(`SET: ${String(prop)} set to ${value}.`);
-      // 如果设置的值是对象，先包装成代理
-      const newValue = (typeof value === 'object' && value !== null) ? createLazyDeepProxy(value, handler) : value;
-      return Reflect.set(target, prop, newValue, receiver);
-    }
-  });
-}
-
-const lazyHandler = {
-  get(target: any, prop: string) {
-    track(target, prop);
-    return Reflect.get(target, prop);
   },
-  set(target: any, prop: string, value: any) {
-    Reflect.set(target, prop, value);
-    trigger(target, prop);
-    return true
+  // 拦截 in 操作符，这个需要去看语言标准
+  has: function(target: any, prop: string) {
+    track(target, prop);
+    return Reflect.has(target, prop);
+  },
+  ownKeys: function(target: any) {
+    track(target, ITERATE_KEY);
+    return Reflect.ownKeys(target);
   }
-};
+}

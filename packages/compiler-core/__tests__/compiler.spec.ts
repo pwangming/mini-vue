@@ -15,17 +15,17 @@ describe('compiler test', () => {
   })
   it('parse、transform、generate test', () => {
     const ast = parse('<div id="foo" v-show="display"><p>foo</p><span>{{ bar }}</span><!-- <p></p> --></div>');
-    console.log(ast)
+    // console.log(ast)
     transform(ast);
-    console.log(JSON.stringify(ast.jsNode))
+    // console.log(JSON.stringify(ast.jsNode))
     const code = generate(ast.jsNode);
-    console.log(code);
+    // console.log(code);
   })
 
   it('generate test', () => {
     const ast = parse(`<p class="message" @click="changeMessage">{{ message }}</p>`)
     transform(ast)
     const code = generate(ast.jsNode);
-    console.log(code);
+    // console.log(code);
   })
 })

@@ -89,7 +89,7 @@ function cleanup(runner: any) {
 }
 
 // 当 effect 内部的用户函数 fn 正在执行，并且访问了响应式数据时，track 才会被调用，依赖才会被收集。
-export function track(target: object, key: string): void {
+export function track(target: object, key: any): void {
   // 检查是否有运行的 effect，没有直接返回函数，没有运行的 effect，不会收集依赖
   if (!activeEffect) return;
   let depsMap = targetMap.get(target);

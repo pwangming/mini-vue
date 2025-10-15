@@ -21,7 +21,7 @@ export const renderer = createRenderer({
 
   // 将属性设置相关操作封装到 patchProps 函数中，并作为渲染器选项传递
   patchProps(el: any, key: string, prevValue: any, nextValue: any) {
-    console.log('el', el, key, prevValue, nextValue);
+    // console.log('el', el, key, prevValue, nextValue);
     // 以 on 开头的都是事件
     if (/^on/.test(key)) {
       // 获取该元素伪造的事件处理函数 invoker
@@ -98,7 +98,7 @@ export function createRenderer(options: any) {
   const { createElement, setElementText, insert, createText, setText, patchProps } = options;
   // 渲染函数
   function render(vnode: any, container: any) {
-    console.log('render', vnode)
+    // console.log('render', vnode)
     if (vnode) {
       // 挂载或更新
       patch(container._vnode, vnode, container)
@@ -152,7 +152,7 @@ export function createRenderer(options: any) {
     }
 
     const { type } = n2;
-    console.log('type', type);
+    // console.log('type', type);
     if (typeof type === 'string') {
       if (!n1) {
         // 旧的不存在，意味着是挂载
@@ -216,7 +216,7 @@ export function createRenderer(options: any) {
     // 两者的关系核心原则：HTML Attributes 的作用是设置与之对应的 DOM Properties 的初始值。
     if (vnode.props) {
       for (const key in vnode.props) {
-        console.log(22222);
+        // console.log(22222);
         patchProps(el, key, null, vnode.props[key]);
       }
     }

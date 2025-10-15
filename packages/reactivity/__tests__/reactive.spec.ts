@@ -1,6 +1,6 @@
 import { ref } from '../src/ref.js';
 import { effect } from '../src/effect.js';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 describe('ref', () => {
   it('基本类型', () => {
@@ -76,5 +76,29 @@ describe('ref', () => {
     effect(() => { dummy = obj.value.b.c });
     obj.value.b.c = '789';
     expect(dummy).toBe('789');
+  })
+
+  it('测试 in 操作符', () => {
+    interface Obj {
+      a?: string,
+      b: string
+    }
+    const obj = ref<Obj>({a: 'abc', b: 'xyz'});
+    let dummy;
+    const handler = vi.fn();
+    effect(() => { 
+      dummy = 'a' in obj.value;
+      for(const key in obj.value) {
+        
+      }
+    });
+
+    expect(handler).not.toHaveBeenCalled();
+
+    obj.value.a = '111'
+    expect(dummy).toBe(true);
+
+    delete obj.value.a;
+    expect(dummy).toBe(false);
   })
 })

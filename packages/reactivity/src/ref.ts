@@ -54,11 +54,11 @@ class RefImpl<T = any> {
 
   set value(newval) {
     const oldVal = this._rawValue;
-    if (newval !== oldVal) {
+    // 只有不同的值才触发 trigger, ( newval === newval || oldVal === oldVal )这个条件是去掉 NaN 的
+    if (newval !== oldVal && ( newval === newval || oldVal === oldVal )) {
       this._value = newval;
       this._rawValue = newval
+      trigger(this, 'value')
     }
-    // console.log('trigger');
-    trigger(this, 'value')
   }
 }

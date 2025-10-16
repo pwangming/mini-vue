@@ -1,6 +1,5 @@
 import { track, trigger } from './effect.js'
-
-const ITERATE_KEY = Symbol();
+import { ITERATE_KEY, triggerType } from './shared.js';
 
 export function reactive(target: any) {
   const proxyObj = new Proxy(target, handler);
@@ -36,18 +35,38 @@ const handler = {
     return res;
   },
   set: function(target: any, prop: string, value: any, receiver: any) {
+    const oldVal = target[prop];
+    // 如果属性不存在是新增属性，否则是修改属性
+    const type = Object.prototype.hasOwnProperty.call(target, prop) ? triggerType.SET : triggerType.ADD;
     // 先 Reflect.set 再 trigger(), 先更新值，再更新视图
-    Reflect.set(target, prop, value, receiver);
-    trigger(target, prop);
-    return true;
+    const res = Reflect.set(target, prop, value, receiver);
+    // ( newval === newval || oldVal === oldVal ) 这个条件是去掉 NaN 的
+    if (oldVal !== value && (oldVal === oldVal || value === value)) {
+      trigger(target, prop, type);
+    }
+    return res;
   },
-  // 拦截 in 操作符，这个需要去看语言标准
+  // 拦截 in 操作符，实现 in、for in、delete 需要去看语言标准
   has: function(target: any, prop: string) {
     track(target, prop);
     return Reflect.has(target, prop);
   },
+  // 拦截 for in 循环，循环并没有读取任何一个属性，track 的时候需要给一个唯一标识符去定义是 for in 循环
   ownKeys: function(target: any) {
     track(target, ITERATE_KEY);
     return Reflect.ownKeys(target);
+  },
+  // 拦截 delete 操作
+  deleteProperty: function(target: any, prop: string) {
+    // 检查操作的属性是否属于自身
+    const hadKey = Object.prototype.hasOwnProperty.call(target, prop);
+    const res = Reflect.deleteProperty(target, prop);
+
+    if (res && hadKey) {
+      // 只有操作的属性属性自身且被成功删除后才触发 trigger
+      trigger(target, prop, triggerType.DELETE);
+    }
+
+    return res;
   }
 }

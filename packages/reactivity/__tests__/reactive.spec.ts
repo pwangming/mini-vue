@@ -1,45 +1,9 @@
 import { ref } from '../src/ref.js';
+import { reactive } from '../src/reactive.js';
 import { effect } from '../src/effect.js';
 import { describe, expect, it, vi } from 'vitest';
 
-describe('ref', () => {
-  it('基本类型', () => {
-    const num = ref<number | undefined>(0);
-    let dummy;
-    effect(() => {dummy = num.value})
-    expect(dummy).toBe(0);
-    (num.value as number)++;
-    expect(dummy).toBe(1);
-    num.value = undefined;
-    expect(dummy).toBe(undefined);
-
-    const str = ref<string | null>('abc');
-    effect(() => {dummy = str.value})
-    expect(dummy).toBe('abc');
-    str.value = 'xyz';
-    expect(dummy).toBe('xyz');
-    str.value = null;
-    expect(dummy).toBe(null);
-
-    const bool = ref(true);
-    effect(() => {dummy = bool.value})
-    expect(dummy).toBe(true);
-    bool.value = false;
-    expect(dummy).toBe(false);
-
-    const a = ref<number | null>(null);
-    effect(() => {dummy = a.value})
-    expect(dummy).toBe(null);
-    a.value = 123;
-    expect(dummy).toBe(123);
-
-    const b = ref<string | undefined>(undefined);
-    effect(() => { dummy = b.value });
-    expect(dummy).toBe(undefined);
-    b.value = 'abc';
-    expect(dummy).toBe('abc');
-  })
-
+describe('reactive', () => {
   it('object attr change', () => {
     type Obj = {
       count: number | string
@@ -78,27 +42,115 @@ describe('ref', () => {
     expect(dummy).toBe('789');
   })
 
-  it('测试 in 操作符', () => {
+  it('should react to "in", "for...in", and "delete" operations', () => {
     interface Obj {
       a?: string,
       b: string
     }
     const obj = ref<Obj>({a: 'abc', b: 'xyz'});
-    let dummy;
-    const handler = vi.fn();
+    let dummyIn;
+    let dummyKeys: string[] = [];
+
     effect(() => { 
-      dummy = 'a' in obj.value;
+      // 测试 'in' 操作符
+      dummyIn = 'a' in obj.value;
+      
+      // 测试 'for...in' 循环
+      dummyKeys = [];
       for(const key in obj.value) {
-        
+        dummyKeys.push(key);
       }
     });
 
-    expect(handler).not.toHaveBeenCalled();
+    // 初始状态
+    expect(dummyIn).toBe(true);
+    expect(dummyKeys).toEqual(['a', 'b']);
 
-    obj.value.a = '111'
-    expect(dummy).toBe(true);
+    // 修改属性
+    obj.value.a = '111';
+    expect(dummyIn).toBe(true); // 'in' 操作符应该仍然为 true
+    expect(dummyKeys).toEqual(['a', 'b']); // 键名不变
 
+    // 删除属性
     delete obj.value.a;
-    expect(dummy).toBe(false);
+    expect(dummyIn).toBe(false); // 'in' 操作符变为 false
+    expect(dummyKeys).toEqual(['b']); // 'for...in' 循环的结果更新
+  });
+
+  it('should not execute effect when setting the same value', () => {
+    const count = ref({a: 'abc'});
+    let dummy;
+    const fn = vi.fn(() => {
+      dummy = count.value.a;
+    });
+
+    // 创建 effect
+    effect(fn);
+
+    // 断言初始状态
+    expect(dummy).toBe('abc');
+    expect(fn).toHaveBeenCalledTimes(1); // effect 执行一次
+
+    // 设置相同的值
+    count.value.a = 'abc';
+
+    // 断言 effect 没有重新执行
+    expect(dummy).toBe('abc');
+    expect(fn).toHaveBeenCalledTimes(1); // 调用次数没有增加
+
+    // 设置不同的值
+    count.value.a = 'xyz';
+
+    // 断言 effect 重新执行
+    expect(dummy).toBe('xyz');
+    expect(fn).toHaveBeenCalledTimes(2); // 调用次数增加
+  });
+
+  it('should not execute effect when setting the same value is NaN', () => {
+    const count = ref({a: NaN});
+    let dummy;
+    const fn = vi.fn(() => {
+      dummy = count.value.a;
+    });
+
+    // 创建 effect
+    effect(fn);
+
+    // 断言初始状态
+    expect(dummy).toBe(NaN);
+    expect(fn).toHaveBeenCalledTimes(1); // effect 执行一次
+
+    // 设置相同的值
+    count.value.a = NaN;
+
+    // 断言 effect 没有重新执行
+    expect(dummy).toBe(NaN);
+    expect(fn).toHaveBeenCalledTimes(1); // 调用次数没有增加
+
+    // 设置不同的值
+    count.value.a = 1;
+
+    // 断言 effect 重新执行
+    expect(dummy).toBe(1);
+    expect(fn).toHaveBeenCalledTimes(2); // 调用次数增加
+  });
+
+  it('原型链上的set', () => {
+    const obj = {};
+    const proto = { bar: 0 };
+    const child = reactive(obj);
+    const parent = reactive(proto);
+    Object.setPrototypeOf(child, parent);
+    let dummy;
+    const fn = vi.fn(() => {
+      dummy = child.value.bar;
+    });
+
+    // 创建 effect
+    effect(fn);
+
+    // 断言初始状态
+    expect(dummy).toBe(0);
+    expect(fn).toHaveBeenCalledTimes(1); // effect 执行一次
   })
 })

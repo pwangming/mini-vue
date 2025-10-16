@@ -1,3 +1,5 @@
+import { ITERATE_KEY, triggerType } from './shared.js';
+
 let targetMap = new WeakMap();
 // activeEffect 需要使用栈，可以避免 effect 嵌套带来的问题
 const effectStack: any[] = [];
@@ -106,22 +108,37 @@ export function track(target: object, key: any): void {
   activeEffect.deps.push(dep);
 }
 
-export function trigger(target: object, key: string): void {
+export function trigger(target: object, key: string, type: string = ''): void {
   const depsMap = targetMap.get(target);
   if (!depsMap) return;
-  const deps = depsMap.get(key);
-  if (deps) {
-    // 使用 [...dep] 创建副本，避免遍历时修改原 Set
-    const effects = [...deps];
-    for(const effect of effects) {
-      const { scheduler } = effect.options;
-      if (scheduler) {
-        // 如果 effect 有 scheduler，交给 scheduler 处理
-        scheduler(effect);
-      } else {
-        // 立即执行
-        effect();
+  const effects = depsMap.get(key);
+  // 创建副本，避免遍历时修改原 Set
+  const effectsToRun: any = new Set();
+
+  effects && effects.forEach((effectFn: any) => {
+    if (effectFn !== activeEffect) {
+      effectsToRun.add(effectFn);
+    }
+  })
+
+  // 只有当 type 是 ADD 和 DELETE 时，才触发与 ITERATE_KEY 相关联的副作用函数
+  if (type === triggerType.ADD || type === triggerType.DELETE) {
+    const iterateEffects = depsMap.get(ITERATE_KEY);
+    iterateEffects && iterateEffects.forEach((effectFn: any) => {
+      if (effectFn !== activeEffect) {
+        effectsToRun.add(effectFn);
       }
+    })
+  }
+
+  for(const effect of effectsToRun) {
+    const { scheduler } = effect.options;
+    if (scheduler) {
+      // 如果 effect 有 scheduler，交给 scheduler 处理
+      scheduler(effect);
+    } else {
+      // 立即执行
+      effect();
     }
   }
 }

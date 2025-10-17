@@ -1,5 +1,5 @@
 import { ref } from '../src/ref.js';
-import { reactive } from '../src/reactive.js';
+import { reactive, shallowReactive, readonly, shallowReadonly } from '../src/reactive.js';
 import { effect } from '../src/effect.js';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -156,5 +156,88 @@ describe('reactive', () => {
     child.bar = 1;
     expect(dummy).toBe(1);
     expect(fn).toHaveBeenCalledTimes(2); // 修改 child.bar, effect 应该只能执行一次
+  })
+
+  it('shallowReactive', () => {
+    const obj = shallowReactive({ foo: 'abc', bar: { count: 0 } });
+    let dummy;
+    let dummyRef;
+    effect(() => {
+      dummy = obj.bar.count;
+    })
+
+    effect(() => {
+      dummyRef = obj.foo;
+    })
+
+    expect(dummy).toBe(0);
+    expect(dummyRef).toBe('abc');
+
+    obj.bar.count = 1;
+    expect(dummy).toBe(0);
+    expect(dummyRef).toBe('abc');
+
+    obj.foo = 'xyz';
+    expect(dummy).toBe(0);
+    expect(dummyRef).toBe('xyz');
+  })
+
+  it('readonly', () => {
+    const obj = readonly({foo: 'abc', bar: { count: 0 }});
+    let dummy;
+    let dummyReadonly;
+    effect(() => {
+      dummy = obj.foo;
+    })
+    effect(() => {
+      dummyReadonly = obj.bar.count;
+    })
+
+    expect(dummy).toBe('abc');
+    expect(dummyReadonly).toBe(0);
+    expect(obj.foo).toBe('abc');
+    expect(obj.bar.count).toBe(0);
+
+    obj.foo = 'xyz';
+    expect(dummy).toBe('abc');
+    expect(dummyReadonly).toBe(0);
+    expect(obj.foo).toBe('abc');
+    expect(obj.bar.count).toBe(0);
+
+    obj.bar.count = 1;
+    expect(dummy).toBe('abc');
+    expect(dummyReadonly).toBe(0);
+    expect(obj.foo).toBe('abc');
+    expect(obj.bar.count).toBe(0);
+  })
+
+  it('shallowReadonly', () => {
+    const obj = shallowReadonly({foo: 'abc', bar: { count: 0 }});
+    let dummy;
+    let dummyReadonly;
+    effect(() => {
+      dummy = obj.foo;
+    })
+    effect(() => {
+      dummyReadonly = obj.bar.count;
+    })
+
+    expect(dummy).toBe('abc');
+    expect(dummyReadonly).toBe(0);
+    expect(obj.foo).toBe('abc');
+    expect(obj.bar.count).toBe(0);
+
+    obj.foo = 'xyz';
+    expect(dummy).toBe('abc');
+    expect(dummyReadonly).toBe(0);
+    expect(obj.foo).toBe('abc');
+    expect(obj.bar.count).toBe(0);
+
+    obj.bar.count = 1;
+    expect(dummy).toBe('abc');
+    expect(dummyReadonly).toBe(0);
+    expect(obj.foo).toBe('abc');
+    // 能改，但不会触发 effect
+    expect(obj.bar.count).toBe(1);
   })
 })

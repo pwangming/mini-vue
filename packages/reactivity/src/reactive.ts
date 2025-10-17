@@ -1,8 +1,13 @@
 import { track, trigger } from './effect.js'
 import { ITERATE_KEY, triggerType } from './shared.js';
 
+/**
+ * 深响应
+ * @param target 
+ * @returns 
+ */
 export function reactive(target: any) {
-  const proxyObj = new Proxy(target, handler);
+  return createReactive(target);
 
   // 递归 第一次就创建所有的深层对象的 proxy，会造成巨大的性能浪费。
 
@@ -21,59 +26,102 @@ export function reactive(target: any) {
   //     proxyObj[key] = reactive(proxyObj[key]);
   //   }
   // }
-
-  return proxyObj;
 }
 
-const handler = {
-  get: function(target: any, prop: string, receiver: any) {
-    track(target, prop);
-    const res = Reflect.get(target, prop, receiver)
-    // 代理对象可以通过 raw 访问原始对象
-    if (prop === 'raw') {
-      return target
-    }
-    if (typeof res === 'object' && res !== null) {
-      return reactive(res)
-    }
-    return res;
-  },
-  set: function(target: any, prop: string, value: any, receiver: any) {
-    const oldVal = target[prop];
-    // 如果属性不存在是新增属性，否则是修改属性
-    const type = Object.prototype.hasOwnProperty.call(target, prop) ? triggerType.SET : triggerType.ADD;
-    // 先 Reflect.set 再 trigger(), 先更新值，再更新视图
-    const res = Reflect.set(target, prop, value, receiver);
-    // target === receiver.raw 说明 receiver 就是 target 的代理对象
-    if (target === receiver.raw) {
-      // ( newval === newval || oldVal === oldVal ) 这个条件是去掉 NaN 的
-      if (oldVal !== value && (oldVal === oldVal || value === value)) {
-        trigger(target, prop, type);
+/**
+ * 浅响应
+ * @param target 
+ * @returns 
+ */
+export function shallowReactive(target: any) {
+  return createReactive(target, true);
+}
+
+/**
+ * 浅只读
+ * @param target 
+ * @returns 
+ */
+export function shallowReadonly(target: any) {
+  return createReactive(target, true, true);
+}
+
+/**
+ * 只读
+ * @param target 
+ * @returns 
+ */
+export function readonly(target: any) {
+  return createReactive(target, false, true);
+}
+
+function createReactive(target: any, isShallow = false, isReadonly = false) {
+  return new Proxy(target, {
+    get: function(target: any, prop: string, receiver: any) {
+      // 代理对象可以通过 raw 访问原始对象
+      if (prop === 'raw') {
+        return target
       }
-    }
-    return res;
-  },
-  // 拦截 in 操作符，实现 in、for in、delete 需要去看语言标准
-  has: function(target: any, prop: string) {
-    track(target, prop);
-    return Reflect.has(target, prop);
-  },
-  // 拦截 for in 循环，循环并没有读取任何一个属性，track 的时候需要给一个唯一标识符去定义是 for in 循环
-  ownKeys: function(target: any) {
-    track(target, ITERATE_KEY);
-    return Reflect.ownKeys(target);
-  },
-  // 拦截 delete 操作
-  deleteProperty: function(target: any, prop: string) {
-    // 检查操作的属性是否属于自身
-    const hadKey = Object.prototype.hasOwnProperty.call(target, prop);
-    const res = Reflect.deleteProperty(target, prop);
+      // 非只读的时候才需要建立响应联系
+      if (!isReadonly) {
+        track(target, prop);
+      }
+      const res = Reflect.get(target, prop, receiver)
+      // 浅响应，直接返回原始值
+      if (isShallow) {
+        return res;
+      }
+      if (typeof res === 'object' && res !== null) {
+        // 如果数据为只读，调用 readonly 进行包装
+        return isReadonly ? readonly(res) : reactive(res)
+      }
+      return res;
+    },
+    set: function(target: any, prop: string, value: any, receiver: any) {
+      if (isReadonly) {
+        console.warn(`属性${prop}是只读的`);
+        return true;
+      }
+      const oldVal = target[prop];
+      // 如果属性不存在是新增属性，否则是修改属性
+      const type = Object.prototype.hasOwnProperty.call(target, prop) ? triggerType.SET : triggerType.ADD;
+      // 先 Reflect.set 再 trigger(), 先更新值，再更新视图
+      const res = Reflect.set(target, prop, value, receiver);
+      // target === receiver.raw 说明 receiver 就是 target 的代理对象
+      if (target === receiver.raw) {
+        // ( newval === newval || oldVal === oldVal ) 这个条件是去掉 NaN 的
+        if (oldVal !== value && (oldVal === oldVal || value === value)) {
+          trigger(target, prop, type);
+        }
+      }
+      return res;
+    },
+    // 拦截 in 操作符，实现 in、for in、delete 需要去看语言标准
+    has: function(target: any, prop: string) {
+      track(target, prop);
+      return Reflect.has(target, prop);
+    },
+    // 拦截 for in 循环，循环并没有读取任何一个属性，track 的时候需要给一个唯一标识符去定义是 for in 循环
+    ownKeys: function(target: any) {
+      track(target, ITERATE_KEY);
+      return Reflect.ownKeys(target);
+    },
+    // 拦截 delete 操作
+    deleteProperty: function(target: any, prop: string) {
+      if (isReadonly) {
+        console.warn(`属性${prop}是只读的`);
+        return true;
+      }
+      // 检查操作的属性是否属于自身
+      const hadKey = Object.prototype.hasOwnProperty.call(target, prop);
+      const res = Reflect.deleteProperty(target, prop);
 
-    if (res && hadKey) {
-      // 只有操作的属性属性自身且被成功删除后才触发 trigger
-      trigger(target, prop, triggerType.DELETE);
-    }
+      if (res && hadKey) {
+        // 只有操作的属性属性自身且被成功删除后才触发 trigger
+        trigger(target, prop, triggerType.DELETE);
+      }
 
-    return res;
-  }
+      return res;
+    }
+  });
 }

@@ -29,6 +29,10 @@ const handler = {
   get: function(target: any, prop: string, receiver: any) {
     track(target, prop);
     const res = Reflect.get(target, prop, receiver)
+    // 代理对象可以通过 raw 访问原始对象
+    if (prop === 'raw') {
+      return target
+    }
     if (typeof res === 'object' && res !== null) {
       return reactive(res)
     }
@@ -40,9 +44,12 @@ const handler = {
     const type = Object.prototype.hasOwnProperty.call(target, prop) ? triggerType.SET : triggerType.ADD;
     // 先 Reflect.set 再 trigger(), 先更新值，再更新视图
     const res = Reflect.set(target, prop, value, receiver);
-    // ( newval === newval || oldVal === oldVal ) 这个条件是去掉 NaN 的
-    if (oldVal !== value && (oldVal === oldVal || value === value)) {
-      trigger(target, prop, type);
+    // target === receiver.raw 说明 receiver 就是 target 的代理对象
+    if (target === receiver.raw) {
+      // ( newval === newval || oldVal === oldVal ) 这个条件是去掉 NaN 的
+      if (oldVal !== value && (oldVal === oldVal || value === value)) {
+        trigger(target, prop, type);
+      }
     }
     return res;
   },

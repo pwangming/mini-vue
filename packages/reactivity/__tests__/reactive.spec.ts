@@ -135,7 +135,7 @@ describe('reactive', () => {
     expect(fn).toHaveBeenCalledTimes(2); // 调用次数增加
   });
 
-  it('原型链上的set', () => {
+  it('child、parent都是响应式数据，修改child没有的属性但parent有的属性，会触发两次effect，实际希望触发一次', () => {
     const obj = {};
     const proto = { bar: 0 };
     const child = reactive(obj);
@@ -143,7 +143,7 @@ describe('reactive', () => {
     Object.setPrototypeOf(child, parent);
     let dummy;
     const fn = vi.fn(() => {
-      dummy = child.value.bar;
+      dummy = child.bar;
     });
 
     // 创建 effect
@@ -152,5 +152,9 @@ describe('reactive', () => {
     // 断言初始状态
     expect(dummy).toBe(0);
     expect(fn).toHaveBeenCalledTimes(1); // effect 执行一次
+
+    child.bar = 1;
+    expect(dummy).toBe(1);
+    expect(fn).toHaveBeenCalledTimes(2); // 修改 child.bar, effect 应该只能执行一次
   })
 })

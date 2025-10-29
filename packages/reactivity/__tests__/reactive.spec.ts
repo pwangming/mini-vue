@@ -240,4 +240,137 @@ describe('reactive', () => {
     // 能改，但不会触发 effect
     expect(obj.bar.count).toBe(1);
   })
+
+  it('array 整体替换和单个赋值 test', () => {
+    const arr = ref<number[]>([1, 2, 3]);
+    let dummyArr;
+    let length;
+
+    effect(() => {
+      dummyArr = arr.value;
+      length = arr.value.length;
+    })
+
+    expect(dummyArr).toEqual([1, 2, 3]);
+    expect(length).toBe(3);
+
+    arr.value[0] = 9;
+    expect(dummyArr).toEqual([9, 2, 3]);
+    expect(length).toBe(3);
+
+    arr.value = [3, 2, 1, 0];
+    expect(dummyArr).toEqual([3, 2, 1, 0]);
+    expect(length).toBe(4);
+  })
+
+  it('超出数组长度的赋值', () => {
+    const arr = ref<number[]>([1, 2, 3]);
+    let dummy;
+    let dummyArr;
+    let length;
+
+    effect(() => {
+      dummy = arr.value[0];
+      dummyArr = arr.value;
+      length = arr.value.length;
+    })
+
+    expect(dummyArr).toEqual([1, 2, 3]);
+    expect(dummy).toBe(1)
+    expect(length).toBe(3);
+
+    arr.value[4] = 5;
+    expect(dummyArr).toEqual([1, 2, 3, undefined, 5]);
+    expect(dummy).toBe(1);
+    expect(length).toBe(5);
+  })
+
+  it('array for in', () => {
+    const arr = reactive([1, 2, 3]);
+    let dummyKeys;
+    effect(() => { 
+      // 测试 'for...in' 循环
+      dummyKeys = [];
+      for(const key in arr) {
+        dummyKeys.push(arr[key]);
+      }
+    });
+
+    expect(dummyKeys).toEqual([1, 2, 3]);
+
+    // for in 循环只遍历存在的属性，是通过属性拿值的。稀疏数组只会遍历索引存在的。
+    arr[4] = 8;
+    expect(dummyKeys).toEqual([1, 2, 3, 8]);
+
+    arr.length = 0;
+    expect(dummyKeys).toEqual([]);
+  })
+
+  it('array for of', () => {
+    const arr = reactive([1, 2, 3]);
+    let dummyKeys;
+    effect(() => { 
+      // 测试 'for...of' 循环
+      dummyKeys = [];
+      for(const val of arr) {
+        dummyKeys.push(val);
+      }
+    });
+
+    expect(dummyKeys).toEqual([1, 2, 3]);
+
+    // for of 是用来遍历 可迭代对象
+    // 而是一种协议。具体来说，一个对象能否被迭代，取决于该对象或者该对象的原型是否实现了 @@iterator 方法。
+    // 这里的 @@[name] 标志在ECMAScript 规范里用来代指 JavaScript 内建的 symbols 值，
+    // 例如 @@iterator 指的就是 Symbol.iterator 这个值。如果一个对象实现了 Symbol.iterator 方法，那么这个对象就是可以迭代的
+
+    // 数组迭代器的模拟实现
+    //  arr[Symbol.iterator] = function() {
+    //    const target = this
+    //    const len = target.length
+    //    let index = 0
+    
+    //    return {
+    //      next() {
+    //        return {
+    //          value: index < len ? target[index] : undefined,
+    //          done: index++ >= len
+    //        }
+    //      }
+    //    }
+    //  }
+    arr[4] = 8;
+    expect(dummyKeys).toEqual([1, 2, 3, undefined, 8]);
+
+    // 可以看到，不需要增加任何代码就能够使其正确地工作。
+    // 这是因为只要数组的长度和元素值发生改变，副作用函数自然会重新执行。
+    // 数组的 values 方法的返回值实际上就是数组内建的迭代器，
+    // 我们可以验证这一点：
+    // console.log(Array.prototype.values === Array.prototype[Symbol.iterator]) // true
+    arr.length = 0;
+    expect(dummyKeys).toEqual([]);
+  })
+
+  it('array values()', () => {
+    const arr = reactive([1, 2, 3]);
+    let dummyKeys;
+    effect(() => { 
+      // 测试 'for...of' 循环
+      dummyKeys = [];
+      // 无论是使用 for...of 循环，还是调用 values 等方法，它们都会读取数组的 Symbol.iterator 属性。
+      // 该属性是一个 symbol 值，为了避免发生意外的错误，以及性能上的考虑，
+      // 我们不应该在副作用函数与 Symbol.iterator 这类 symbol 值之间建立响应联系，因此需要修改 get 拦截函数
+      for(const val of arr.values()) {
+        dummyKeys.push(val);
+      }
+    });
+
+    expect(dummyKeys).toEqual([1, 2, 3]);
+
+    arr[4] = 8;
+    expect(dummyKeys).toEqual([1, 2, 3, undefined, 8]);
+
+    arr.length = 0;
+    expect(dummyKeys).toEqual([]);
+  })
 })

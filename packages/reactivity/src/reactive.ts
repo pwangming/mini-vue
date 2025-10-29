@@ -21,11 +21,6 @@ export function reactive(target: any) {
   // * 如果返回值是一个普通对象，Vue 会调用一个内部函数（类似于 reactive 或 shallowReactive）立即将这个对象也转换成一个响应式对象（即创建一个新的 Proxy）。
   // * 然后，这个新创建的响应式对象（Proxy）会被返回。
   // * 这个过程是“惰性”的，因为嵌套对象的代理是在你第一次访问它时才创建的，而不是在初始化 state 时就为所有层级创建。
-  // for (let key in proxyObj) {
-  //   if (proxyObj.hasOwnProperty(key) && typeof proxyObj[key] === 'object' && proxyObj[key] !== null) {
-  //     proxyObj[key] = reactive(proxyObj[key]);
-  //   }
-  // }
 }
 
 /**
@@ -62,8 +57,8 @@ function createReactive(target: any, isShallow = false, isReadonly = false) {
       if (prop === 'raw') {
         return target
       }
-      // 非只读的时候才需要建立响应联系
-      if (!isReadonly) {
+      // 非只读的时候才需要建立响应联系, 并且 prop 的类型是 symbol，也不建立联系
+      if (!isReadonly && typeof prop !== 'symbol') {
         track(target, prop);
       }
       const res = Reflect.get(target, prop, receiver)
@@ -84,14 +79,19 @@ function createReactive(target: any, isShallow = false, isReadonly = false) {
       }
       const oldVal = target[prop];
       // 如果属性不存在是新增属性，否则是修改属性
-      const type = Object.prototype.hasOwnProperty.call(target, prop) ? triggerType.SET : triggerType.ADD;
+      const type = Array.isArray(target)
+      // 如果代理的目标是数组，则检测被设置的的索引值是否小于数组长度
+      // 如果是则是 SET 否则是 ADD
+      ? Number(prop) < target.length ? triggerType.SET : triggerType.ADD 
+      : Object.prototype.hasOwnProperty.call(target, prop) ? triggerType.SET : triggerType.ADD;
       // 先 Reflect.set 再 trigger(), 先更新值，再更新视图
       const res = Reflect.set(target, prop, value, receiver);
       // target === receiver.raw 说明 receiver 就是 target 的代理对象
       if (target === receiver.raw) {
         // ( newval === newval || oldVal === oldVal ) 这个条件是去掉 NaN 的
         if (oldVal !== value && (oldVal === oldVal || value === value)) {
-          trigger(target, prop, type);
+          // value 是新值
+          trigger(target, prop, type, value);
         }
       }
       return res;
@@ -103,7 +103,8 @@ function createReactive(target: any, isShallow = false, isReadonly = false) {
     },
     // 拦截 for in 循环，循环并没有读取任何一个属性，track 的时候需要给一个唯一标识符去定义是 for in 循环
     ownKeys: function(target: any) {
-      track(target, ITERATE_KEY);
+      // 数组也可以使用 for in 循环，因此如果操作目标是数组，则使用 length 作为 key 并建立响应式联系
+      track(target, Array.isArray(target) ? 'length' : ITERATE_KEY);
       return Reflect.ownKeys(target);
     },
     // 拦截 delete 操作

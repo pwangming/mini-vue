@@ -108,7 +108,7 @@ export function track(target: object, key: any): void {
   activeEffect.deps.push(dep);
 }
 
-export function trigger(target: object, key: string, type: string = ''): void {
+export function trigger(target: object, key: string, type: string = '', value: any = ''): void {
   const depsMap = targetMap.get(target);
   if (!depsMap) return;
   const effects = depsMap.get(key);
@@ -127,6 +127,28 @@ export function trigger(target: object, key: string, type: string = ''): void {
     iterateEffects && iterateEffects.forEach((effectFn: any) => {
       if (effectFn !== activeEffect) {
         effectsToRun.add(effectFn);
+      }
+    })
+  }
+
+  // 只有当 type 是 ADD 并且目标对象是数组时，应该取出与 length 相关联的副作用函数
+  if (type === triggerType.ADD && Array.isArray(target)) {
+    const lengthEffects = depsMap.get('length');
+    lengthEffects && lengthEffects.forEach((effectFn: any) => {
+      if (effectFn !== activeEffect) {
+        effectsToRun.add(effectFn);
+      }
+    })
+  }
+  // 如果操作的是数组，并且修改了数组的 length 属性，
+  if (Array.isArray(target) && key === 'length') {
+    depsMap.forEach((effects: any, key: any) => {
+      // 对于索引大于等于新的 length 值的元素
+      // 需要把相关副作用函数取出来添加到 effectsToRun 中等待执行
+      if (key >= value) {
+        effects.forEach((effectFn: any) => {
+          effectsToRun.add(effectFn);
+        })
       }
     })
   }

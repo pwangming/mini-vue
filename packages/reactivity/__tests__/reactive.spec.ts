@@ -373,4 +373,33 @@ describe('reactive', () => {
     arr.length = 0;
     expect(dummyKeys).toEqual([]);
   })
+
+  it('array includes', () => {
+    const numberArr = reactive([1, 2]);
+    let numberDummy;
+
+    effect(() => {
+      numberDummy = numberArr.includes(1);
+    })
+
+    expect(numberDummy).toBe(true);
+
+    numberArr[0] = 3;
+    expect(numberDummy).toBe(false);
+
+    const obj = {};
+    const arr = reactive([obj]);
+    let dummy;
+    let dummy2;
+
+    effect(() => {
+      // 测试这个是因为 obj 会多次创建 proxy ，他们是不相等的
+      dummy = arr.includes(arr[0]);
+      // includes 内部的 this 指向的是代理对象， 获取数组元素的值得到的对象也是代理对象，用原始对象去找肯定找不到
+      dummy2 = arr.includes(obj);
+    })
+
+    expect(dummy).toBe(true);
+    expect(dummy2).toBe(true);
+  })
 })

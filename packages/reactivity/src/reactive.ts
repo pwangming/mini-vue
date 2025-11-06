@@ -1,13 +1,23 @@
 import { track, trigger } from './effect.js'
 import { ITERATE_KEY, triggerType } from './shared.js';
 
+// 定义一个 Map 实例，用于存储原始对象到代理对象的映射
+const reactiveMap = new Map();
+
 /**
  * 深响应
  * @param target 
  * @returns 
  */
 export function reactive(target: any) {
-  return createReactive(target);
+  // 优先通过原始对象查找之前创建的代理对象，找到了直接返回代理对象
+  const existionProxy = reactiveMap.get(target);
+  if (existionProxy) return existionProxy;
+  // 创建新的代理对象
+  const proxy = createReactive(target);
+  // 保存在 reactiveMap 中，避免重复创建
+  reactiveMap.set(target, proxy);
+  return proxy;
 
   // 递归 第一次就创建所有的深层对象的 proxy，会造成巨大的性能浪费。
 
@@ -50,12 +60,60 @@ export function readonly(target: any) {
   return createReactive(target, false, true);
 }
 
+// 定义一个接口，描述代理数组的结构
+interface ProxiedArray<T> extends Array<T> {
+  raw: T[];
+}
+
+// 重写部分数组方法
+const arrayInstrumentations: any = {};
+
+// includes、 indexOf、lastIndexOf 都是一样的
+['includes', 'indexsOf', 'lastIndexOf'].forEach((method: any) => {
+  const originmethod = Array.prototype[method];
+
+  arrayInstrumentations[method] = function(this: ProxiedArray<any>, ...args: any) {
+    // this 是代理对象，现在代理对象中查找，将结果存储到 res 中
+    let res = originmethod.apply(this, args);
+
+    if (res === false || res === -1) {
+      // res 为 false 说明没有找到，通过 this.raw 拿到原始数组，再去查找并更新 res 的值
+      // console.log(this, this.raw, "+++++++++++++++++++"); 
+      res = originmethod.apply(this.raw, args);
+    }
+
+    return res;
+  }
+})
+
+// 标记一个变量，代表是否进行追踪，默认追踪
+export let shouldTrack = true;
+// 重写数组方法
+['push', 'pop', 'shift', 'unshift', 'splice'].forEach((method: any) => {
+  // 获取原始方法
+  const originmethod = Array.prototype[method];
+  // 重写
+  arrayInstrumentations[method] = function(this: ProxiedArray<any>, ...args: any) {
+    // 在调用原始方法前禁止追踪
+    shouldTrack = false;
+    // 调用原始方法
+    let res = originmethod.apply(this, args)
+    // 在调用原始方法后允许追踪
+    shouldTrack = true;
+    return res;
+  }
+})
+
 function createReactive(target: any, isShallow = false, isReadonly = false) {
   return new Proxy(target, {
     get: function(target: any, prop: string, receiver: any) {
       // 代理对象可以通过 raw 访问原始对象
       if (prop === 'raw') {
         return target
+      }
+      // 如果操作的是数组，并且 key 存在于 arrayInstrumentations 中，那么返回定义在 arrayInstumentations 上的值
+      if (Array.isArray(target) && arrayInstrumentations.hasOwnProperty(prop)) {
+        return Reflect.get(arrayInstrumentations, prop, receiver);
       }
       // 非只读的时候才需要建立响应联系, 并且 prop 的类型是 symbol，也不建立联系
       if (!isReadonly && typeof prop !== 'symbol') {

@@ -131,6 +131,41 @@ const mutableInstrumentations = {
       trigger(target, prop, triggerType.DELETE);
     }
     return res;
+  },
+  clear(prop: string): any {
+    const target = this.raw;
+    const res = target.clear();
+    trigger(target, prop, triggerType.DELETE);
+    return res;
+  },
+  get(prop: string): any {
+    const target = this.raw;
+    const had = target.has(prop);
+    // 追踪依赖
+    track(target, prop);
+    if (had) {
+      const res = target.get(prop);
+      return typeof res === 'object' ? reactive(res) : res;
+    }
+  },
+  set(prop: string, value: any): any {
+    const target = this.raw;
+    const had = target.has(prop);
+    // 获取旧值
+    const oldVal = target.get(prop);
+    // 设置新值，这里直接设置到了原始数据上，将响应式数据设置到原始数据上的行为称为数据污染
+    // 解决办法：获取原始数据，由于 value 本身可能已经是原始数据，所以此时 value.raw 不存在，则直接使用 value
+    // 缺陷：1、一直使用 raw 属性来访问原始数据是有缺陷的，可能与用户自定义的 raw 属性冲突，一般使用唯一的标识来作为访问原始数据的键，使用 Symbol 类型
+    //      2、除了 set 方法需要避免污染原始数据以外，Set 类型的 add、普通对象的写值操作、数组添加元素的方法等都要做类似的操作
+    const rawValue = value.raw || value;
+    target.set(prop, rawValue);
+    if (!had) {
+      // 新增
+      trigger(target, prop, triggerType.ADD);
+    } else if (oldVal !== value || (oldVal === oldVal && value === value)) {
+      // 不存在并且值变了，是 SET 类型
+      trigger(target, prop, triggerType.SET);
+    }
   }
 }
 

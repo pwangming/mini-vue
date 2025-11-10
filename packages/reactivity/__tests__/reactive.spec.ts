@@ -403,20 +403,6 @@ describe('reactive', () => {
     expect(dummy2).toBe(true);
   })
 
-  // it('map', () => {
-  //   const myMap = reactive(new Map([['key', 1]]));
-  //   let dummy;
-
-  //   effect(() => {
-  //     dummy = myMap.get('key');
-  //   })
-
-  //   expect(dummy).toBe(1);
-
-  //   myMap.set('key', 2);
-  //   expect(dummy).toBe(2);
-  // })
-
   it('set', () => {
     const mySet = reactive(new Set([1, 2, 3]));
     let dummySize;
@@ -432,5 +418,42 @@ describe('reactive', () => {
 
     mySet.delete(1);
     expect(dummySize).toBe(3);
+
+    mySet.clear();
+    expect(dummySize).toBe(0);
+  })
+
+  it('map base', () => {
+    const myMap = reactive(new Map([['key', 1]]));
+    let dummy;
+
+    effect(() => {
+      dummy = myMap.get('key');
+    })
+
+    expect(dummy).toBe(1);
+
+    myMap.set('key', 2);
+    expect(dummy).toBe(2);
+  })
+
+  it('map 原始数据不应该具有响应式', () => {
+    const m = new Map();
+    const p1 = reactive(m);
+    const p2 = reactive(new Map());
+    p1.set('p2', p2);
+
+    let dummy;
+    effect(() => {
+      // 通过原始数据 m 访问 p2
+      dummy = m.get('p2').size;
+    })
+
+    expect(dummy).toBe(0);
+
+    // 通过原始数据 m 为 p2 设置一个键值对 
+    m.get('p2').set('foo', 1);
+    // 这里原始数据不应该具有响应式能力
+    expect(dummy).toBe(0);
   })
 })

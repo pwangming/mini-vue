@@ -104,12 +104,47 @@ export let shouldTrack = true;
   }
 })
 
+// 定义一个对象，将自定义的 add 等方法定义到该对象下
+const mutableInstrumentations = {
+  add(prop: string): any {
+    // this 任然指向的是代理对象，通过 raw 拿到原始对象
+    const target = this.raw;
+    const hadKey = target.has(prop);
+    // 通过原始数据对象执行 add 方法添加具体的值，
+    // 注意，这里不再需要 .bind ，因为通过 target 调用并执行的
+    const res = target.add(prop);
+    if (!hadKey) {
+      // 调用 trigger 函数触发响应，并指定操作类型为 ADD
+      trigger(target, prop, triggerType.ADD);
+    }
+    return res;
+  },
+  delete(prop: string): any {
+    // this 任然指向的是代理对象，通过 raw 拿到原始对象
+    const target = this.raw;
+    const hadKey = target.has(prop);
+    // 通过原始数据对象执行 add 方法添加具体的值，
+    // 注意，这里不再需要 .bind ，因为通过 target 调用并执行的
+    const res = target.delete(prop);
+    if (hadKey) {
+      // 调用 trigger 函数触发响应，并指定操作类型为 ADD
+      trigger(target, prop, triggerType.DELETE);
+    }
+    return res;
+  }
+}
+
 function createReactive(target: any, isShallow = false, isReadonly = false) {
   return new Proxy(target, {
     get: function(target: any, prop: string, receiver: any) {
       // 代理对象可以通过 raw 访问原始对象
       if (prop === 'raw') {
         return target
+      }
+      // 如果操作的是 Map 或 Set，并且 key 存在于 mutableInstrumentations 中
+      if ((target instanceof Map || target instanceof Set) && mutableInstrumentations.hasOwnProperty(prop)) {
+        // 返回定义在 mutableInstrumentations 上的方法
+        return mutableInstrumentations[prop];
       }
       // 如果操作的是数组，并且 key 存在于 arrayInstrumentations 中，那么返回定义在 arrayInstumentations 上的值
       if (Array.isArray(target) && arrayInstrumentations.hasOwnProperty(prop)) {
@@ -119,6 +154,24 @@ function createReactive(target: any, isShallow = false, isReadonly = false) {
       if (!isReadonly && typeof prop !== 'symbol') {
         track(target, prop);
       }
+      // set 的 size
+      if (prop === 'size') {
+        track(target, ITERATE_KEY);
+        // Set.prototype.size 是一个访问器属性，它的 set 访问器函数是 undefined，它的 get 访问器函数会执行以下步骤。
+        // 1. 让 S 的值为 this。
+        // 2. 执行 ? RequireInternalSlot(S, [​[SetData]​])。
+        // 3. 让 entries 的值为 List，即 S.[​[SetData]​]​。
+        // 4. 让 count 的 值为 0。
+        // 5. 对于 entries 中 的每个元素 e，执行：a. 如果 e 不是空的，则将 count 设置为 count + 1。
+        // 6. 返回 [插图](count)。
+        // 由此可知，Set.prototype.size 是一个访问器属性。这里的关键点在第 1 步和第 2 步。
+        // 根据第 1 步的描述：让 S 的值为 this。这里的 this 是谁呢？由于我们是通过代理对象p 来访问 size 属性的，所以 this 就是代理对象 p。
+        // 接着在第 2 步中，调用抽象方法RequireInternalSlot(S, [​[SetData]​]) 来检查 S 是否存在内部槽 [​[SetData]​]​。
+        // 很显然，代理对象 S 不存在 [​[SetData]​] 这个内部槽，于是会抛出一个错误，也就是前面例子中得到的错误。
+        // 为了修复这个问题，我们需要修正访问器属性的 getter 函数执行时的 this 指向
+        return Reflect.get(target, prop, target);
+      }
+      
       const res = Reflect.get(target, prop, receiver)
       // 浅响应，直接返回原始值
       if (isShallow) {
@@ -126,7 +179,7 @@ function createReactive(target: any, isShallow = false, isReadonly = false) {
       }
       if (typeof res === 'object' && res !== null) {
         // 如果数据为只读，调用 readonly 进行包装
-        return isReadonly ? readonly(res) : reactive(res)
+        return isReadonly ? readonly(res) : reactive(res);
       }
       return res;
     },

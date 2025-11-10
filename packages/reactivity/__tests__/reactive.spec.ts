@@ -402,4 +402,35 @@ describe('reactive', () => {
     expect(dummy).toBe(true);
     expect(dummy2).toBe(true);
   })
+
+  // it('map', () => {
+  //   const myMap = reactive(new Map([['key', 1]]));
+  //   let dummy;
+
+  //   effect(() => {
+  //     dummy = myMap.get('key');
+  //   })
+
+  //   expect(dummy).toBe(1);
+
+  //   myMap.set('key', 2);
+  //   expect(dummy).toBe(2);
+  // })
+
+  it('set', () => {
+    const mySet = reactive(new Set([1, 2, 3]));
+    let dummySize;
+
+    effect(() => {
+      dummySize = mySet.size;
+    })
+
+    expect(dummySize).toBe(3);
+
+    mySet.add(4);
+    expect(dummySize).toBe(4);
+
+    mySet.delete(1);
+    expect(dummySize).toBe(3);
+  })
 })

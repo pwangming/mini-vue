@@ -1,5 +1,5 @@
 import { track, trigger } from './effect.js'
-import { ITERATE_KEY, triggerType } from './shared.js';
+import { ITERATE_KEY, triggerType, MAP_KEY_ITERATE_KEY } from './shared.js';
 
 // 定义一个 Map 实例，用于存储原始对象到代理对象的映射
 const reactiveMap = new Map();
@@ -165,6 +165,100 @@ const mutableInstrumentations = {
     } else if (oldVal !== value || (oldVal === oldVal && value === value)) {
       // 不存在并且值变了，是 SET 类型
       trigger(target, prop, triggerType.SET);
+    }
+  },
+  forEach(callback: Function, thisArg: any): any {
+    // wrap 函数将可代理的值转换为响应式
+    const wrap = (val: any) => typeof val === 'object' ? reactive(val) : val;
+    // 获取原始数据对象
+    const target = this.raw;
+    // 与 ITERATE_KEY 建立联系
+    track(target, ITERATE_KEY);
+    // 调用原始数据对象的 forEach 并传入 callback
+    target.forEach((v: any, k: any) => {
+      // 手动调用 callback 用 wrap 函数包裹 v、k 再传递给 callback 实现深响应
+      // 出于严谨性，我们还需要做一些补充。
+      // 因为 forEach 函数除了接收 callback 作为参数之外，它还接收第二个参数，该参数可以用来指定 callback 函数执行时的 this 值
+      callback.call(thisArg, wrap(v), wrap(k), this);
+    });
+  },
+  [Symbol.iterator]: iterationMethod,
+  entries: iterationMethod,
+  values: valuesIterationMethod,
+  keys: keysIterationMethod
+}
+
+function iterationMethod() {
+  const target = this.raw;
+  // 获取原始迭代器方法
+  const itr = target[Symbol.iterator]();
+  const wrap = (val: any) => typeof val === 'object' && val !== null ? reactive(val) : val;
+
+  track(target, ITERATE_KEY);
+  // 返回自定义的迭代器
+  return {
+    next() {
+      // 使用原始迭代器的 next 方法获取 value 和 done
+      const { value, done } = itr.next();
+      return {
+        // 这里的 value 是键值对
+        value: value ? [wrap(value[0]), wrap(value[1])] : value,
+        done
+      }
+    },
+    // 实现可迭代协议
+    [Symbol.iterator]() {
+      return this;
+    }
+  }
+}
+
+function valuesIterationMethod() {
+  const target = this.raw;
+  // 获取原始迭代器方法
+  const itr = target.values();
+  const wrap = (val: any) => typeof val === 'object' ? reactive(val) : val;
+
+  track(target, ITERATE_KEY);
+  // 返回自定义的迭代器
+  return {
+    next() {
+      // 使用原始迭代器的 next 方法获取 value 和 done
+      const { value, done } = itr.next();
+      return {
+        // 这里的 value 是值
+        value: value ? wrap(value) : value,
+        done
+      }
+    },
+    // 实现可迭代协议
+    [Symbol.iterator]() {
+      return this;
+    }
+  }
+}
+
+function keysIterationMethod() {
+  const target = this.raw;
+  // 获取原始迭代器方法
+  const itr = target.keys();
+  const wrap = (val: any) => typeof val === 'object' ? reactive(val) : val;
+
+  track(target, MAP_KEY_ITERATE_KEY);
+  // 返回自定义的迭代器
+  return {
+    next() {
+      // 使用原始迭代器的 next 方法获取 value 和 done
+      const { value, done } = itr.next();
+      return {
+        // 这里的 value 是值
+        value: value ? wrap(value) : value,
+        done
+      }
+    },
+    // 实现可迭代协议
+    [Symbol.iterator]() {
+      return this;
     }
   }
 }

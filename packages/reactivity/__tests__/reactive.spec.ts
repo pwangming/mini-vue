@@ -456,4 +456,135 @@ describe('reactive', () => {
     // 这里原始数据不应该具有响应式能力
     expect(dummy).toBe(0);
   })
+
+  it('map forEach', () => {
+    const p = reactive(new Map([[{ key: 1}, { value: 1}]]));
+    const key = { key: 1 };
+    const value = new Set([1, 2, 3]);
+    const p1  = reactive(new Map([[key, value]]));
+    let dummyKey, dummyValue, dummySize;
+
+    effect(() => {
+      p.forEach((value: any, key: any) => {
+        dummyKey = key;
+        dummyValue = value;
+      })
+    })
+
+    expect(dummyKey).toEqual({ key: 1 });
+    expect(dummyValue).toEqual({ value: 1 });
+
+    p.set({ key: 2 }, { value: 2 });
+    expect(dummyKey).toEqual({ key: 2 });
+    expect(dummyValue).toEqual({ value: 2 });
+
+    effect(() => {
+      p1.forEach((value: any, key: any) => {
+        dummySize = value.size;
+      })
+    })
+
+    expect(dummySize).toBe(3);
+    
+    // 这里有个问题，p1.get(key)获取到的是原始数据的 set，再执行 delete 不会触发响应式，应该要触发。
+    // 解决办法：获取到的原始数据 再用 reactive() 再包一层
+    p1.get(key).delete(1);
+    expect(dummySize).toBe(2);
+  })
+
+  it('map iterable, entries', () => {
+    const p = reactive(new Map([
+      ['key1', 'value1'],
+      ['key2', 'value2']
+    ]))
+    let dummyKey: string[] = [], dummyValue: string[] = [];
+
+    effect(() => {
+      dummyKey = [], dummyValue = [];
+      for (const [key, value] of p) {
+        dummyKey.push(key);
+        dummyValue.push(value);
+      }
+    })
+    // p 与 p.entries 等价
+    effect(() => {
+      dummyKey = [], dummyValue = [];
+      for (const [key, value] of p.entries()) {
+        dummyKey.push(key);
+        dummyValue.push(value);
+      }
+    })
+
+    expect(dummyKey).toEqual(['key1', 'key2']);
+    expect(dummyValue).toEqual(['value1', 'value2']);
+
+    p.set('key3', 'value3');
+    expect(dummyKey).toEqual(['key1', 'key2', 'key3']);
+    expect(dummyValue).toEqual(['value1', 'value2', 'value3']);
+
+    p.set('key3', 'value9');
+    expect(dummyKey).toEqual(['key1', 'key2', 'key3']);
+    expect(dummyValue).toEqual(['value1', 'value2', 'value9']);
+  })
+
+  it('map values()', () => {
+    const p = reactive(new Map([
+      ['key1', 'value1'],
+      ['key2', 'value2']
+    ]))
+
+    let dummyValue: string[] = [];
+
+    const fn = vi.fn(() => {
+      dummyValue = [];
+      for (const value of p.values()) {
+        dummyValue.push(value);
+      }
+    });
+
+    // 创建 effect
+    effect(fn);
+
+    expect(dummyValue).toEqual(['value1', 'value2']);
+    expect(fn).toHaveBeenCalledTimes(1); // effect 执行1次
+
+
+    p.set('key3', 'value3');
+    expect(dummyValue).toEqual(['value1', 'value2', 'value3']);
+    expect(fn).toHaveBeenCalledTimes(2); // effect 执行2次
+
+    // 改变原有 key 的值，对于 values() 要触发响应式
+    p.set('key3', 'value9');
+    expect(dummyValue).toEqual(['value1', 'value2', 'value9']);
+    expect(fn).toHaveBeenCalledTimes(3); // effect 执行3次
+  })
+
+  it('map keys()', () => {
+    const p = reactive(new Map([
+      ['key1', 'value1'],
+      ['key2', 'value2']
+    ]))
+
+    let dummyKey: string[] = [];
+    const fn = vi.fn(() => {
+      dummyKey = [];
+      for (const key of p.keys()) {
+        dummyKey.push(key);
+      }
+    });
+
+    // 创建 effect
+    effect(fn);
+
+    expect(dummyKey).toEqual(['key1', 'key2']);
+    expect(fn).toHaveBeenCalledTimes(1); // effect 执行1次
+
+    p.set('key3', 'value3');
+    expect(dummyKey).toEqual(['key1', 'key2', 'key3']);
+    expect(fn).toHaveBeenCalledTimes(2); // effect 执行2次
+
+    // 只改变原有 key 的值，对于 keys() 来说不应该触发响应式更新
+    p.set('key2', 'value9')
+    expect(fn).toHaveBeenCalledTimes(2); // effect 执行2次
+  })
 })

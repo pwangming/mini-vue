@@ -1,4 +1,4 @@
-import { ITERATE_KEY, triggerType } from './shared.js';
+import { ITERATE_KEY, triggerType, MAP_KEY_ITERATE_KEY } from './shared.js';
 import { shouldTrack } from './reactive.js';
 
 let targetMap = new WeakMap();
@@ -123,8 +123,23 @@ export function trigger(target: object, key: string, type: string = '', value: a
   })
 
   // 只有当 type 是 ADD 和 DELETE 时，才触发与 ITERATE_KEY 相关联的副作用函数
-  if (type === triggerType.ADD || type === triggerType.DELETE) {
+  if (type === triggerType.ADD 
+    || type === triggerType.DELETE 
+    // 如果操作类型是 SET 且操作对象是 Map 类型的数据时，也应该触发与 ITERATE_KEY 相关联的副作用函数
+    || ( type === triggerType.SET && Object.prototype.toString.call(target) === '[object Map]' ) ) {
     const iterateEffects = depsMap.get(ITERATE_KEY);
+    iterateEffects && iterateEffects.forEach((effectFn: any) => {
+      if (effectFn !== activeEffect) {
+        effectsToRun.add(effectFn);
+      }
+    })
+  }
+
+    // 只有当 type 是 ADD 和 DELETE 时，才触发与 MAP_KEY_ITERATE_KEY 相关联的副作用函数
+  if (( type === triggerType.ADD || type === triggerType.DELETE )
+    // 如果操作类型是 SET 且操作对象是 Map 类型的数据时，也应该触发与 MAP_KEY_ITERATE_KEY 相关联的副作用函数
+    && Object.prototype.toString.call(target) === '[object Map]' ) {
+    const iterateEffects = depsMap.get(MAP_KEY_ITERATE_KEY);
     iterateEffects && iterateEffects.forEach((effectFn: any) => {
       if (effectFn !== activeEffect) {
         effectsToRun.add(effectFn);

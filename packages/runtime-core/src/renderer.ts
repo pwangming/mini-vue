@@ -24,20 +24,33 @@ export const renderer = createRenderer({
     // console.log('el', el, key, prevValue, nextValue);
     // 以 on 开头的都是事件
     if (/^on/.test(key)) {
+      // 定义 el._vei 为一个对象，事件名称到事件处理函数的映射
+      const invokers = el._vei || (el._vei = {})
       // 获取该元素伪造的事件处理函数 invoker
-      let invoker = el._vei;
+      let invoker = invokers[key];
       // 根据属性名获取对应的事件名称
       const name = key.slice(2).toLowerCase();
       if (nextValue) {
         if (!invoker) {
-          // 如果没有 invoker 则将一个伪造的 invoker 缓存到 el.vei 中
+          // 如果没有 invoker 则将一个伪造的 invoker 缓存到 el._vei[key] 中, 避免覆盖
           // vei 是 vue event invoker 的缩写
-          invoker = el.vei = (e: any) => {
-            // 当伪造的事件处理函数执行时，会执行真正的事件处理函数
-            invoker.value(e);
+          invoker = el._vei[key] = (e: any) => {
+            // e.timeStamp 是事件发生的时间
+            // 如果事件发生的事件早于事件处理函数绑定的事件则不执行事件处理函数
+            if (e.timeStamp  < invoker.attached) return
+            // 如果是数组，循环调用每个事件处理函数
+            if (Array.isArray(invoker.value)) {
+              invoker.value.forEach((fn: any) => fn(e));
+            } else {
+              // 直接作为函数调用
+              // 当伪造的事件处理函数执行时，会执行真正的事件处理函数
+              invoker.value(e);
+            }
           }
           // 将真正的事件函数赋值给 invoker.value
           invoker.value = nextValue;
+          // 添加 invoker.attached 属性，存储事件处理函数被绑定的时间
+          invoker.attached = performance.now();
           // 绑定 invoker 函数作为事件处理函数
           el.addEventListener(name, invoker);
         } else {

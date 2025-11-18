@@ -274,9 +274,34 @@ export function createRenderer(options: any) {
       // 判断旧节点是否是一组节点
       if (Array.isArray(n1.children)) {
         // 1、粗暴做法 卸载所有旧的子节点，挂载所有新的子节点
-        n1.children.forEach((c: any) => unmount(c));
-        n2.children.forEach((c: any) => patch(null, c, container, anchor));
+        // n1.children.forEach((c: any) => unmount(c));
+        // n2.children.forEach((c: any) => patch(null, c, container, anchor));
         // 2、diff 算法
+        const oldChildren = n1.children;
+        const newChildren = n2.children;
+
+        // 旧的一组子节点长度
+        const oldLen = oldChildren.length;
+        // 新的一组子节点长度
+        const newLen = newChildren.length;
+
+        // 公共长度，既两者中较短的一组子节点长度
+        const commonLength = Math.min(oldLen, newLen);
+        // 循环公共长度，进行节点更新
+        for(let i = 0; i < commonLength; i++) {
+          patch(oldChildren[i], newChildren[i], container);
+        }
+        // 如果 newLen > oldLen 说明有新节点要挂载
+        if (newLen > oldLen) {
+          for(let i = commonLength; i < newLen; i++) {
+            patch(null, newChildren[i], container);
+          }
+        // 如果 oldLen > newLen 说明有旧节点要卸载
+        } else if (oldLen > newLen) {
+          for(let i = commonLength; i < oldLen; i++) {
+            unmount(oldChildren[i]);
+          }
+        }
       } else {
         // 旧节点要么是文本节点要么没有
         // 都要清空容器，挂载新的节点

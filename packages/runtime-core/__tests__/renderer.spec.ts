@@ -115,4 +115,25 @@ describe('renderer', () => {
     expect(ul.children.length).toBe(1);
     expect(ul.children[0].textContent).toBe('a');
   });
+
+  it('should reuse elements with the same key', () => {
+    const oldVnode = h('ul', null, [
+      h('li', { 'key': 'a' }, 'A'),
+      h('li', { 'key': 'b' }, 'B')
+    ]);
+    const newVnode = h('ul', null, [
+      h('li', { 'key': 'b' }, 'B'),
+      h('li', { 'key': 'a' }, 'A')
+    ]);
+
+    renderer.render(oldVnode, container);
+    const ul = container.firstChild as HTMLElement;
+    const [oldLiA, oldLiB] = ul.children;
+
+    renderer.render(newVnode, container);
+    const [newLiB, newLiA] = ul.children;
+
+    expect(newLiA).toBe(oldLiA);
+    expect(newLiB).toBe(oldLiB);
+  })
 })

@@ -276,9 +276,21 @@ export function createRenderer(options: any) {
         // 1、粗暴做法 卸载所有旧的子节点，挂载所有新的子节点
         // n1.children.forEach((c: any) => unmount(c));
         // n2.children.forEach((c: any) => patch(null, c, container, anchor));
-        // 2、diff 算法
+        // 2、diff 算法 分为 3 种 1、简单 diff 算法、2、双端 diff 算法、3、快速 diff 算法
         const oldChildren = n1.children;
         const newChildren = n2.children;
+
+        for(let i = 0; i < newChildren.length; i++) {
+          const newVnode = newChildren[i];
+          for(let j = 0; j < oldChildren.length; j++) {
+            const oldVnode = oldChildren[j];
+            // 如果找到了具有相同 key 值的两个节点，说明可以复用，但仍然需要调用 patch 函数更新
+            if (newVnode.key === oldVnode.key) {
+              patch(oldVnode, newVnode, container);
+              break;
+            }
+          }
+        }
 
         // 旧的一组子节点长度
         const oldLen = oldChildren.length;

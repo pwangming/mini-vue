@@ -66,11 +66,11 @@ describe('renderer', () => {
 
   // 子节点数量不变，仅内容改变
   it('should patch children with same length but different content', () => {
-    const oldVnode = h('ul', { key: 'ul' }, [
+    const oldVnode = h('ul', null, [
       h('li', { key: 1 }, 'a'),
       h('li', { key: 2 }, 'b')
     ]);
-    const newVnode = h('ul', { key: 'ul' }, [
+    const newVnode = h('ul', null, [
       h('li', { key: 1 }, 'x'), // 内容改变
       h('li', { key: 2 }, 'y')  // 内容改变
     ]);
@@ -86,18 +86,18 @@ describe('renderer', () => {
 
   // 仅新增子节点
   it('should append new child nodes', () => {
-    const oldVnode = h('ul', { key: 'ul' }, [h('li', { key: 1 }, 'a')]);
-    const newSetLastVnode = h('ul', { key: 'ul' }, [
+    const oldVnode = h('ul', null, [h('li', { key: 1 }, 'a')]);
+    const newSetLastVnode = h('ul', null, [
       h('li', { key: 1 }, 'a'),
       h('li', { key: 2 }, 'b') // 新增
     ]);
-    const newSetFirstVnode = h('ul', { key: 'ul' }, [
+    const newSetFirstVnode = h('ul', null, [
       h('li', { key: 1 }, 'c'),
       h('li', { key: 2 }, 'a'),
       h('li', { key: 3 }, 'b') // 新增
     ]);
 
-    const newSetMiddleVnode = h('ul', { key: 'ul' }, [
+    const newSetMiddleVnode = h('ul', null, [
       h('li', { key: 1 }, 'c'),
       h('li', { key: 2 }, 'a'),
       h('li', { key: 3 }, 'd'),
@@ -127,13 +127,13 @@ describe('renderer', () => {
 
   // 删除子节点
   it('should remove deleted child nodes', () => {
-    const oldVnode = h('ul', { key: 'ul' }, [
+    const oldVnode = h('ul', null, [
       h('li', { key: 'a' }, 'a'),
       h('li', { key: 'b' }, 'b'),
       h('li', { key: 'c' }, 'c'),
       h('li', { key: 'd' }, 'd')
     ]);
-    const newVnode = h('ul', { key: 'ul' }, [h('li', { key: 'a' }, 'a'), h('li', { key: 'c' }, 'c'), h('li', { key: 'd' }, 'd')]); // 删除 b
+    const newVnode = h('ul', null, [h('li', { key: 'a' }, 'a'), h('li', { key: 'c' }, 'c'), h('li', { key: 'd' }, 'd')]); // 删除 b
 
     renderer.render(oldVnode, container);
     const ul = container.firstChild as HTMLElement;
@@ -146,11 +146,11 @@ describe('renderer', () => {
   });
 
   it('should reuse elements with the same key', () => {
-    const oldVnode = h('ul', { key: 'ul' }, [
+    const oldVnode = h('ul', null, [
       h('li', { 'key': 'a' }, 'A'),
       h('li', { 'key': 'b' }, 'B')
     ]);
-    const newVnode = h('ul', { key: 'ul' }, [
+    const newVnode = h('ul', null, [
       h('li', { 'key': 'b' }, 'B'),
       h('li', { 'key': 'a' }, 'A')
     ]);

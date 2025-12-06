@@ -66,13 +66,13 @@ describe('renderer', () => {
 
   // 子节点数量不变，仅内容改变
   it('should patch children with same length but different content', () => {
-    const oldVnode = h('ul', null, [
-      h('li', null, 'a'),
-      h('li', null, 'b')
+    const oldVnode = h('ul', { key: 'ul' }, [
+      h('li', { key: 1 }, 'a'),
+      h('li', { key: 2 }, 'b')
     ]);
-    const newVnode = h('ul', null, [
-      h('li', null, 'x'), // 内容改变
-      h('li', null, 'y')  // 内容改变
+    const newVnode = h('ul', { key: 'ul' }, [
+      h('li', { key: 1 }, 'x'), // 内容改变
+      h('li', { key: 2 }, 'y')  // 内容改变
     ]);
 
     renderer.render(oldVnode, container);
@@ -86,42 +86,71 @@ describe('renderer', () => {
 
   // 仅新增子节点
   it('should append new child nodes', () => {
-    const oldVnode = h('ul', null, [h('li', null, 'a')]);
-    const newVnode = h('ul', null, [
-      h('li', null, 'a'),
-      h('li', null, 'b') // 新增
+    const oldVnode = h('ul', { key: 'ul' }, [h('li', { key: 1 }, 'a')]);
+    const newSetLastVnode = h('ul', { key: 'ul' }, [
+      h('li', { key: 1 }, 'a'),
+      h('li', { key: 2 }, 'b') // 新增
+    ]);
+    const newSetFirstVnode = h('ul', { key: 'ul' }, [
+      h('li', { key: 1 }, 'c'),
+      h('li', { key: 2 }, 'a'),
+      h('li', { key: 3 }, 'b') // 新增
+    ]);
+
+    const newSetMiddleVnode = h('ul', { key: 'ul' }, [
+      h('li', { key: 1 }, 'c'),
+      h('li', { key: 2 }, 'a'),
+      h('li', { key: 3 }, 'd'),
+      h('li', { key: 4 }, 'b') // 新增
     ]);
 
     renderer.render(oldVnode, container);
     const ul = container.firstChild as HTMLElement;
 
-    renderer.render(newVnode, container);
+    renderer.render(newSetLastVnode, container);
     expect(ul.children.length).toBe(2);
     expect(ul.children[1].textContent).toBe('b');
+
+    renderer.render(newSetFirstVnode, container);
+    expect(ul.children.length).toBe(3);
+    expect(ul.children[0].textContent).toBe('c');
+    expect(ul.children[1].textContent).toBe('a');
+    expect(ul.children[2].textContent).toBe('b');
+
+    renderer.render(newSetMiddleVnode, container);
+    expect(ul.children.length).toBe(4);
+    expect(ul.children[0].textContent).toBe('c');
+    expect(ul.children[1].textContent).toBe('a');
+    expect(ul.children[2].textContent).toBe('d');
+    expect(ul.children[3].textContent).toBe('b');
   });
 
   // 删除子节点
   it('should remove deleted child nodes', () => {
-    const oldVnode = h('ul', null, [
-      h('li', null, 'a'),
-      h('li', null, 'b')
+    const oldVnode = h('ul', { key: 'ul' }, [
+      h('li', { key: 'a' }, 'a'),
+      h('li', { key: 'b' }, 'b'),
+      h('li', { key: 'c' }, 'c'),
+      h('li', { key: 'd' }, 'd')
     ]);
-    const newVnode = h('ul', null, [h('li', null, 'a')]); // 删除 b
+    const newVnode = h('ul', { key: 'ul' }, [h('li', { key: 'a' }, 'a'), h('li', { key: 'c' }, 'c'), h('li', { key: 'd' }, 'd')]); // 删除 b
 
     renderer.render(oldVnode, container);
     const ul = container.firstChild as HTMLElement;
 
     renderer.render(newVnode, container);
-    expect(ul.children.length).toBe(1);
+    expect(ul.children.length).toBe(3);
     expect(ul.children[0].textContent).toBe('a');
+    expect(ul.children[1].textContent).toBe('c');
+    expect(ul.children[2].textContent).toBe('d');
   });
 
   it('should reuse elements with the same key', () => {
-    const oldVnode = h('ul', null, [
+    const oldVnode = h('ul', { key: 'ul' }, [
       h('li', { 'key': 'a' }, 'A'),
       h('li', { 'key': 'b' }, 'B')
     ]);
-    const newVnode = h('ul', null, [
+    const newVnode = h('ul', { key: 'ul' }, [
       h('li', { 'key': 'b' }, 'B'),
       h('li', { 'key': 'a' }, 'A')
     ]);

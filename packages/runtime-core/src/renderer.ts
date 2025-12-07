@@ -277,100 +277,7 @@ export function createRenderer(options: any) {
         // n1.children.forEach((c: any) => unmount(c));
         // n2.children.forEach((c: any) => patch(null, c, container, anchor));
         // 2、diff 算法 分为 3 种 1、简单 diff 算法、2、双端 diff 算法、3、快速 diff 算法
-        const oldChildren = n1.children;
-        const newChildren = n2.children;
-
-        let lastIndex = 0;
-        for(let i = 0; i < newChildren.length; i++) {
-          const newVnode = newChildren[i];
-          let j = 0;
-          // 在第一层循环中定义变量 find，代表是否在旧的一组字节点中找到可复用的节点
-          // 初始值为 false 代表没有找到
-          let find = false;
-          for(j; j < oldChildren.length; j++) {
-            const oldVnode = oldChildren[j];
-            // 如果找到了具有相同 key 值的两个节点，说明可以复用，但仍然需要调用 patch 函数更新
-            if (newVnode.key === oldVnode.key) {
-              // 一旦找到可复用的节点，将变量 find 的值设为 true
-              find = true;
-              patch(oldVnode, newVnode, container);
-              if (j < lastIndex) {
-                // 如果当前找到的节点在旧 children 中的索引小于最大索引值 lastIndex；
-                // 说明该节点对应的真实 dom 需要移动
-                // 先获取 newVNode 的前一个 vnode 即 prevVNode
-                const prevVnode = newChildren[i - 1];
-                // 如果 prevVNode 不存在，则说明当前 newVNode 是第一个节点，它不需要移动
-                if (prevVnode) {
-                  // 由于我们要将 newVNode 对应的真实 DOM 移动到 prevVNode 所对应的真实 DOM 后面，
-                  // 所以我们要获取 prevVNode 所对应真实 DOM 的下一个兄弟节点，并将其作为锚点
-                  const anchor = prevVnode.el.nextSibling;
-                  // 调用 insert 方法将 newVNode 对应的真实 DOM 插入到锚点元素前面
-                  // 也就是 prevVNode 对应的真实 DOM 的后面
-                  insert(newVnode.el, container, anchor);
-                }
-              } else {
-                // 如果当前找到的节点在旧 children 中的索引不小于最大索引值，
-                // 则更新 lastIndex 的值
-                lastIndex = j;
-              }
-              break;
-            }
-          }
-          // 如果代码运行到这里，find 任然为 false
-          // 说明当前 newVNode 没有在旧的一组字节点中找到可复用的节点
-          // 也就是说，当前 newVNode 是新增节点，需要挂载
-          if(!find) {
-            // 为了将节点挂在到正确的位置，我们需要获取锚点元素
-            // 获取当前 newVNode 的前一个 vnode 节点
-            const prevVNode = newChildren[i - 1];
-            let anchor = null;
-            if (prevVNode) {
-              // 如果有前一个 vnode 节点，则使用它的下一个兄弟节点作为锚点元素
-              anchor = prevVNode.el.nextSibling
-            } else {
-              // 如果没有前一个 vnode 节点，则说明即将挂载的新节点是第一个字节点
-              // 这时我们使用容器元素的 firstChild 作为锚点
-              anchor = container.firstChild
-            }
-            patch(null, newVnode, container, anchor);
-          }
-        }
-
-        for(let i = 0; i < oldChildren.length; i++) {
-          // 拿旧字节点 oldVNode 去新的一组子节点中寻找具有相同 key 值的节点
-          const oldVNode = oldChildren[i];
-          const has = newChildren.find(
-            (vnode: any) => vnode.key === oldVNode.key
-          )
-          if (!has) {
-            // 如果没有找到具有相同 key 值的节点，则说明需要删除该节点
-            unmount(oldVNode);
-          }
-        }
-
-        // 这是没有进行 DOM 复用，性能很差
-        // // 旧的一组子节点长度
-        // const oldLen = oldChildren.length;
-        // // 新的一组子节点长度
-        // const newLen = newChildren.length;
-
-        // // 公共长度，既两者中较短的一组子节点长度
-        // const commonLength = Math.min(oldLen, newLen);
-        // // 循环公共长度，进行节点更新
-        // for(let i = 0; i < commonLength; i++) {
-        //   patch(oldChildren[i], newChildren[i], container);
-        // }
-        // // 如果 newLen > oldLen 说明有新节点要挂载
-        // if (newLen > oldLen) {
-        //   for(let i = commonLength; i < newLen; i++) {
-        //     patch(null, newChildren[i], container);
-        //   }
-        // // 如果 oldLen > newLen 说明有旧节点要卸载
-        // } else if (oldLen > newLen) {
-        //   for(let i = commonLength; i < oldLen; i++) {
-        //     unmount(oldChildren[i]);
-        //   }
-        // }
+        simpleDiff(n1, n2, container, anchor);
       } else {
         // 旧节点要么是文本节点要么没有
         // 都要清空容器，挂载新的节点
@@ -387,6 +294,103 @@ export function createRenderer(options: any) {
       }
 
     }
+  }
+
+  function simpleDiff(n1: any, n2: any, container: any, anchor: any) {
+    const oldChildren = n1.children;
+    const newChildren = n2.children;
+
+    let lastIndex = 0;
+    for(let i = 0; i < newChildren.length; i++) {
+      const newVnode = newChildren[i];
+      let j = 0;
+      // 在第一层循环中定义变量 find，代表是否在旧的一组字节点中找到可复用的节点
+      // 初始值为 false 代表没有找到
+      let find = false;
+      for(j; j < oldChildren.length; j++) {
+        const oldVnode = oldChildren[j];
+        // 如果找到了具有相同 key 值的两个节点，说明可以复用，但仍然需要调用 patch 函数更新
+        if (newVnode.key === oldVnode.key) {
+          // 一旦找到可复用的节点，将变量 find 的值设为 true
+          find = true;
+          patch(oldVnode, newVnode, container);
+          if (j < lastIndex) {
+            // 如果当前找到的节点在旧 children 中的索引小于最大索引值 lastIndex；
+            // 说明该节点对应的真实 dom 需要移动
+            // 先获取 newVNode 的前一个 vnode 即 prevVNode
+            const prevVnode = newChildren[i - 1];
+            // 如果 prevVNode 不存在，则说明当前 newVNode 是第一个节点，它不需要移动
+            if (prevVnode) {
+              // 由于我们要将 newVNode 对应的真实 DOM 移动到 prevVNode 所对应的真实 DOM 后面，
+              // 所以我们要获取 prevVNode 所对应真实 DOM 的下一个兄弟节点，并将其作为锚点
+              const anchor = prevVnode.el.nextSibling;
+              // 调用 insert 方法将 newVNode 对应的真实 DOM 插入到锚点元素前面
+              // 也就是 prevVNode 对应的真实 DOM 的后面
+              insert(newVnode.el, container, anchor);
+            }
+          } else {
+            // 如果当前找到的节点在旧 children 中的索引不小于最大索引值，
+            // 则更新 lastIndex 的值
+            lastIndex = j;
+          }
+          break;
+        }
+      }
+      // 如果代码运行到这里，find 任然为 false
+      // 说明当前 newVNode 没有在旧的一组字节点中找到可复用的节点
+      // 也就是说，当前 newVNode 是新增节点，需要挂载
+      if(!find) {
+        // 为了将节点挂在到正确的位置，我们需要获取锚点元素
+        // 获取当前 newVNode 的前一个 vnode 节点
+        const prevVNode = newChildren[i - 1];
+        let anchor = null;
+        if (prevVNode) {
+          // 如果有前一个 vnode 节点，则使用它的下一个兄弟节点作为锚点元素
+          anchor = prevVNode.el.nextSibling
+        } else {
+          // 如果没有前一个 vnode 节点，则说明即将挂载的新节点是第一个字节点
+          // 这时我们使用容器元素的 firstChild 作为锚点
+          anchor = container.firstChild
+        }
+        patch(null, newVnode, container, anchor);
+      }
+    }
+
+    for(let i = 0; i < oldChildren.length; i++) {
+      // 拿旧字节点 oldVNode 去新的一组子节点中寻找具有相同 key 值的节点
+      const oldVNode = oldChildren[i];
+      const has = newChildren.find(
+        (vnode: any) => vnode.key === oldVNode.key
+      )
+      if (!has) {
+        // 如果没有找到具有相同 key 值的节点，则说明需要删除该节点
+        unmount(oldVNode);
+      }
+    }
+
+    // 这是没有进行 DOM 复用，性能很差
+    // // 旧的一组子节点长度
+    // const oldLen = oldChildren.length;
+    // // 新的一组子节点长度
+    // const newLen = newChildren.length;
+
+    // // 公共长度，既两者中较短的一组子节点长度
+    // const commonLength = Math.min(oldLen, newLen);
+    // // 循环公共长度，进行节点更新
+    // for(let i = 0; i < commonLength; i++) {
+    //   patch(oldChildren[i], newChildren[i], container);
+    // }
+    // // 如果 newLen > oldLen 说明有新节点要挂载
+    // if (newLen > oldLen) {
+    //   for(let i = commonLength; i < newLen; i++) {
+    //     patch(null, newChildren[i], container);
+    //   }
+    // // 如果 oldLen > newLen 说明有旧节点要卸载
+    // } else if (oldLen > newLen) {
+    //   for(let i = commonLength; i < oldLen; i++) {
+    //     unmount(oldChildren[i]);
+    //   }
+    // }
   }
 
   function unmount(vnode: any) {

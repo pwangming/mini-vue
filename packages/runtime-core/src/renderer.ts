@@ -163,7 +163,6 @@ export function createRenderer(options: any) {
       // 只有 n1 重置为 null ，才可以挂载新的
       n1 = null;
     }
-
     const { type } = n2;
     // console.log('type', type);
     if (typeof type === 'string') {
@@ -280,9 +279,9 @@ export function createRenderer(options: any) {
         // 1、简单 diff 算法
         // simpleDiff(n1, n2, container, anchor);
         // 2、双端 diff 算法
-        patchKeyedChildren(n1, n2, container, anchor);
+        // patchKeyedChildren(n1, n2, container, anchor);
         // 快速 diff 算法
-        // quickDiff(n1, n2, container, anchor);
+        quickDiff(n1, n2, container, anchor);
       } else {
         // 旧节点要么是文本节点要么没有
         // 都要清空容器，挂载新的节点
@@ -303,7 +302,191 @@ export function createRenderer(options: any) {
 
   // Vue3 使用的快速 diff 算法
   function quickDiff(n1: any, n2: any, container: any, anchor: any) {
+    // 先预处理相同的节点
+    const newChildren = n2.children;
+    const oldChildren = n1.children;
+    // 处理相同的前置节点
+    // 索引 j 指向新旧两组子节点的开头
+    let j = 0;
+    let oldVNode = oldChildren[j];
+    let newVNode = newChildren[j];
+    // console.log(oldVNode, newVNode)
+    // while 循环向后遍历，知道遇到拥有不同 key 值的节点为止
+    while(oldVNode?.key === newVNode?.key) {
+      // 调用 patch 函数进行更新
+      patch(oldVNode, newVNode, container);
+      // 更新索引
+      j++;
+      oldVNode = oldChildren[j];
+      newVNode = newChildren[j];
+    }
 
+    // 处理相同的后置节点
+    // 索引 oldEnd 指向旧的一组子节点的最后一个节点
+    let oldEnd = oldChildren.length - 1;
+    // 索引 newEnd 指向新的一组子节点的最后一个节点
+    let newEnd = newChildren.length - 1;
+    oldVNode = oldChildren[oldEnd];
+    newVNode = newChildren[newEnd];
+    // 从后向前循环
+    while(oldVNode?.key === newVNode?.key) {
+      patch(oldVNode, newVNode, container);
+      oldEnd--;
+      newEnd--;
+      oldVNode = oldChildren[oldEnd];
+      newVNode = newChildren[newEnd];
+    }
+    // 预处理完毕后，如果满足如下条件，则说明从 j --> newEnd 之间的节点应作为新节点插入
+    if(j > oldEnd && j <= newEnd) {
+      // 锚点的索引
+      const anchorIndex = newEnd + 1;
+      // 锚点元素
+      const anchor = anchorIndex < newChildren.length ? newChildren[anchorIndex]?.el : null;
+      // 逐个挂载新节点
+      while(j <= newEnd) {
+        patch(null, newChildren[j++], container, anchor);
+      }
+    } else if (j > newEnd && j <= oldEnd) {
+      // j --> oldEnd 之间的节点应该被卸载
+      while(j <= oldEnd) {
+        unmount(oldChildren[j++]);
+      }
+    } else {
+      // DOM 移动操作
+      // 1、构造 source 数组
+      // 新的一组子节点中剩余未处理节点的数量
+      const count = newEnd - j + 1;
+      const source = new Array(count);
+      source.fill(-1);
+      // source 数组将用来存储新的一组子节点中的节点在旧的一组子节点中的位置索引，后面将会使用它计算出一个最长递增子序列，用于辅助完成 DOM 移动操作
+
+      // oldStart 和 newStart 分别为起始索引 即 j
+      const oldStart = j;
+      const newStart = j;
+      // 新增两个变量 moved 和 pos
+      let moved = false;
+      let pos = 0;
+      // 构建索引表
+      const keyIndex: any = {};
+      for(let i = newStart; i <= newEnd; i++) {
+        keyIndex[newChildren[i].key] = i;
+      }
+      // 新增 patched 变量，代表更新过的节点
+      let patched = 0;
+      // 遍历旧的一组子节点中剩余未处理的节点
+      for(let i = oldStart; i <= oldEnd; i++) {
+        oldVNode = oldChildren[i];
+        // 如果更新过的节点数量小于等于需要更新的节点数量，则执行更新
+        if (patched <= count) {
+          // 通过索引表快速找到新的一组子节点中具有相同 key 值的节点位置
+          const k = keyIndex[oldVNode.key];
+  
+          if (typeof k !== 'undefined') {
+            newVNode = newChildren[k];
+            // 调用 patch 更新
+            patch(oldVNode, newVNode, container);
+            // 每更新一个节点，都将 patched + 1
+            patched++;
+            // 填充 source 数组
+            source[k - newStart] = i;
+            if (k < pos) {
+              moved = true;
+            } else {
+              pos = k;
+            }
+          } else {
+            // 没有找到
+            unmount(oldVNode);
+          }
+        } else {
+          // 如果更新过的节点数量大于需要更新的节点数量，则卸载多余的节点
+          unmount(oldVNode);
+        }
+      }
+
+      if (moved) {
+        // 如果 moved 为真，则需要进行 DOM 移动操作
+        const seq = getSequence(source);
+
+        // s 指向最长递增子序列的最后一个元素
+        let s = seq.length - 1;
+        // i 指向新的一组子节点的最后一个元素
+        let i = count - 1;
+        // for 循环使 i 递减
+        for(i; i >= 0; i--) {
+          if (source[i] === -1) {
+            // 说明索引 i 的节点是全新的节点，要挂载
+            // 该节点在新的 children 中的真实位置索引
+            // 由于索引 i 是重新编号后的，因此真实索引值是 i + newStart
+            const pos = i + newStart;
+            const newVNode = newChildren[pos];
+            // 该节点的下一个节点位置索引
+            const nextPos = pos + 1;
+            // 锚点
+            const anchor = nextPos < newChildren.length ? newChildren[nextPos]?.el : null;
+            patch(null, newVNode, container, anchor);
+          } else if (i !== seq[s]) {
+            // 如果节点的索引 i 不等于 seq[s] 的值，说明该节点需要移动
+            // 该节点在新的一组子节点中的真实位置索引
+            const pos = i + newStart;
+            const newVNode = newChildren[pos];
+            // 该节点的下一个节点的位置索引
+            const nextPos = pos + 1;
+            // 锚点
+            const anchor = nextPos < newChildren.length ? newChildren[nextPos]?.el : null;
+            // 移动
+            insert(newVNode.el, container, anchor);
+          } else {
+            // 当 i = seq[s] 时，说明该位置的节点不需要移动
+            // 只需让 s 指向下一个位置
+            s--;
+          }
+        }
+      }
+    }
+  }
+
+  // 求解给定序列的最长递增子序列
+  function getSequence(arr: any) {
+    const p = arr.slice();
+    const result = [0];
+    let i, j, u, v, c;
+    const len = arr.length;
+    for(i = 0; i < len; i++) {
+      const arrI = arr[i];
+      if (arrI !== 0) {
+        j = result[result.length - 1];
+        if (arr[j] < arrI) {
+          p[i] = j;
+          result.push(i);
+          continue;
+        }
+        u = 0;
+        v = result.length - 1;
+        while(u < v) {
+          c = ((u + v) / 2) | 0;
+          if (arr[result[c]] < arrI) {
+            u = c + 1;
+          } else {
+            v = c;
+          }
+        }
+        if (arrI < arr[result[u]]) {
+          if (u > 0) {
+            p[i] = result[u - 1];
+          }
+          result[u] = i;
+        }
+      }
+    }
+    u = result.length;
+    v = result[u - 1];
+    while(u-- > 0) {
+      result[u] = v;
+      v = p[v];
+    }
+
+    return result;
   }
 
   // Vue2 使用的双端 diff 算法

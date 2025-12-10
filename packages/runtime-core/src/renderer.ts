@@ -310,9 +310,8 @@ export function createRenderer(options: any) {
     let j = 0;
     let oldVNode = oldChildren[j];
     let newVNode = newChildren[j];
-    // console.log(oldVNode, newVNode)
     // while 循环向后遍历，知道遇到拥有不同 key 值的节点为止
-    while(oldVNode?.key === newVNode?.key) {
+    while(oldVNode && newVNode && oldVNode?.key === newVNode?.key) {
       // 调用 patch 函数进行更新
       patch(oldVNode, newVNode, container);
       // 更新索引
@@ -329,7 +328,7 @@ export function createRenderer(options: any) {
     oldVNode = oldChildren[oldEnd];
     newVNode = newChildren[newEnd];
     // 从后向前循环
-    while(oldVNode?.key === newVNode?.key) {
+    while(oldVNode && newVNode && oldVNode?.key === newVNode?.key) {
       patch(oldVNode, newVNode, container);
       oldEnd--;
       newEnd--;
@@ -356,6 +355,7 @@ export function createRenderer(options: any) {
       // 1、构造 source 数组
       // 新的一组子节点中剩余未处理节点的数量
       const count = newEnd - j + 1;
+      if (count <= 0) return;
       const source = new Array(count);
       source.fill(-1);
       // source 数组将用来存储新的一组子节点中的节点在旧的一组子节点中的位置索引，后面将会使用它计算出一个最长递增子序列，用于辅助完成 DOM 移动操作
@@ -403,10 +403,10 @@ export function createRenderer(options: any) {
           unmount(oldVNode);
         }
       }
-
       if (moved) {
         // 如果 moved 为真，则需要进行 DOM 移动操作
         const seq = getSequence(source);
+        console.log(seq)
 
         // s 指向最长递增子序列的最后一个元素
         let s = seq.length - 1;

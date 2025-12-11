@@ -1,4 +1,4 @@
-import { reactive, effect } from '@mini-vue/reactivity'
+import { reactive, effect, shallowReactive } from '@mini-vue/reactivity'
 import { queueJob } from './scheduler.js';
 import { createAppAPI } from './apiCreateApp.js';
 // 通过传入一个对象，可以实现自定义渲染器，不依赖于特定的浏览器API
@@ -106,6 +106,16 @@ function shouldSetAsProps(el: any, key: string, value: any) {
 //   }
 // })
 
+// 全局变量，存储当前正在被初始化的组件实例
+let currentInstance: any = null;
+/**
+ * 接受一个组件实例作为参数，并将该实例设置为 currentInstance
+ * @param instance 组件实例
+ */
+function setCurrentInstance(instance: any) {
+  currentInstance = instance;
+}
+
 // 创建渲染器
 export function createRenderer(options: any) {
   const { createElement, setElementText, insert, createText, setText, patchProps } = options;
@@ -130,32 +140,32 @@ export function createRenderer(options: any) {
   }
 
   // 文本节点的 type 标识
-  const Text = Symbol()
-  const textVNode = {
-    // 描述文本节点
-    type: Text,
-    children: '我是文本内容'
-  }
+  // const Text = Symbol()
+  // const textVNode = {
+  //   // 描述文本节点
+  //   type: Text,
+  //   children: '我是文本内容'
+  // }
 
   // 注释节点的 type 标识
-  const Comment = Symbol()
-  const commentVNode = {
-    // 描述注释节点
-    type: Comment,
-    children: '我是注释内容'
-  }
+  // const Comment = Symbol()
+  // const commentVNode = {
+  //   // 描述注释节点
+  //   type: Comment,
+  //   children: '我是注释内容'
+  // }
 
   // Vue.js 3 支持多根节点模板，所以不存在上述问题。那么，Vue.js 3 是如何用 vnode 来描述多根节点模板的呢？
   // 答案是，使用 Fragment，
-  const Fragment = Symbol()
-  const fragmentVnode = {
-    type: Fragment,
-    children: [
-      { type: 'li', children: 'text 1' },
-      { type: 'li', children: 'text 2' },
-      { type: 'li', children: 'text 3' }
-    ]
-  }
+  // const Fragment = Symbol()
+  // const fragmentVnode = {
+  //   type: Fragment,
+  //   children: [
+  //     { type: 'li', children: 'text 1' },
+  //     { type: 'li', children: 'text 2' },
+  //     { type: 'li', children: 'text 3' }
+  //   ]
+  // }
   function patch(n1: any, n2: any, container: any, anchor: any = null) {
     // 必须要两个 vnode 的 type 相同才可以更新 eg：同时是 span 才可以更新，一个 div 一个 span 直接卸载旧的，挂载新的
     if (n1 && n1.type !== n2.type) {
@@ -726,6 +736,9 @@ export function createRenderer(options: any) {
     const state = data ? reactive(data()) : null;
 
     const [props, attrs] = resolveProps(propsOptions, vnode.props);
+
+    // 直接使用编译好的 vnode.children 对象作为 slots 对象即可
+    const slots = vnode.children || {};
     // 组件实例本质上就是一个状态集合（或一个对象）​，它维护着组件运行过程中的所有信息，
     // 例如注册到组件的生命周期函数、组件渲染的子树（subTree）​、组件是否已经被挂载、组件自身的状态（data）​，等等。
     // 为了解决关于组件更新的问题，我们需要引入组件实例的概念，以及与之相关的状态信息
@@ -733,19 +746,53 @@ export function createRenderer(options: any) {
       // 组件自身状态数据
       state, 
       // 将 props 包装为 shallowReactive 并定义到组件实例上
-      // props: shallowReactive(props),
-      props: props,
+      props: shallowReactive(props),
+      // props: props,
       // 一个布尔值，表示组件是否已被挂载，初始值为 false
       isMounted: false,
       // 组件所渲染的内容，即子树 subTree
-      subTree: null
+      subTree: null,
+      // 将插槽添加到组件实例上
+      slots,
+      // 在组件实例中添加 mounted 数组，用来存储通过 onMounted 函数注册的生命周期钩子函数
+      mounted: []
+    }
+
+    /**
+     * 定义 emit 函数
+     * @param event 事件名称
+     * @param payload 传递给事件处理函数的参数
+     */
+    function emit(event: any, ...payload: any[]) {
+      // 根据约定对事件名称进行处理，例如：change --> onChange
+      const eventName = `on${event[0].toUpperCase() + event.slice(1)}`;
+      // 根据处理后的事件名称去 props 中寻找对应的事件处理函数
+      const handler = instance.props[eventName];
+      if (handler) {
+        // 调用事件处理函数并传递参数
+        handler(...payload);
+      } else {
+        console.error('事件不存在');
+      }
+    }
+
+    function onMounted(fn: any) {
+      if (currentInstance) {
+        currentInstance.mounted.push(fn);
+      } else {
+        console.error('onMounted 函数只能在 setup 中调用');
+      }
     }
 
     // setupContext, 还可以有 emit 和 slots
-    const setupContext = { attrs };
+    const setupContext = { attrs, emit, slots };
+    // 在调用 setup 函数前 设置当前组件实例
+    setCurrentInstance(instance);
     // 调用 setup 函数，将只读版本的 props 作为第一个参数，避免用户修改 props ，将 setupContext 作为第二个参数传递
-    // const setupResult = setup(shallowReactive(instance.props), setupContext);
-    const setupResult = setup(instance.props, setupContext);
+    const setupResult = setup(shallowReactive(instance.props), setupContext);
+    // const setupResult = setup(instance.props, setupContext);
+    // 在 setup 函数执行完成后，重置当前组件实例
+    setCurrentInstance(null);
     // 用来存储 setup 的返回值
     let setupState = null;
     // 如果 setup 函数返回的是函数，则视为渲染函数
@@ -766,7 +813,8 @@ export function createRenderer(options: any) {
     const renderContext = new Proxy(instance, {
       get(t, k, r) {
         // 取得组件的自身状态和 props
-        const { state, props } = t;
+        const { state, props, slots } = t;
+        if (k === '$slots') return slots
         if (state && k in state ) {
           return state[k];
         } else if (k in props) {
@@ -810,7 +858,8 @@ export function createRenderer(options: any) {
         // 将组件的 isMounted 设置为 true，后续就直接更新组件
         instance.isMounted = true;
         // 这里调用 mounted 钩子
-        mounted && mounted.call(renderContext);
+        // mounted && mounted.call(renderContext);
+        instance.mounted && instance.mounted.forEach((hook: any) => hook.call(renderContext));
       } else {
         // 这里调用 beforeUpdate 钩子
         beforeUpdate && beforeUpdate.call(renderContext);
@@ -831,7 +880,8 @@ export function createRenderer(options: any) {
     const attrs: any = {};
     // 遍历组件传递的 props
     for (const key in propsData) {
-      if (key in options) {
+      // 以字符串 on 开头的 props，无论是否显式的声明，都将其添加到 props 中，而不是添加到 attrs 中
+      if (key in options || key.startsWith('on')) {
         // 如果组件传递的 props 数据在组件自身的 props 中有定义，则视为合法 props
         props[key] = propsData[key];
       } else {

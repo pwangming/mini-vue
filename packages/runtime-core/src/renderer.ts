@@ -729,9 +729,7 @@ export function createRenderer(options: any) {
     const componentOptions = vnode.type;
     // 获取组件的渲染函数
     let { render, data, setup, props: propsOptions,
-      beforeCreated, created, beforeMount, mounted, beforeUpdate, updated } = componentOptions;
-    // 这里调用 beforeCreated 钩子
-    beforeCreated && beforeCreated();
+      beforeCreate, created, beforeMount, mounted, beforeUpdate, updated, beforeUnmount, unmounted } = componentOptions;
 
     const state = data ? reactive(data()) : null;
 
@@ -755,7 +753,30 @@ export function createRenderer(options: any) {
       // 将插槽添加到组件实例上
       slots,
       // 在组件实例中添加 mounted 数组，用来存储通过 onMounted 函数注册的生命周期钩子函数
-      mounted: []
+      created: [],
+      mounted: [],
+      updated: [],
+      unmounted: [],
+      beforeCreate: [],
+      beforeMount: [],
+      beforeUpdate: [],
+      beforeUnmount: []
+    }
+
+    beforeCreate && injectHook('beforeCreate', beforeCreate, instance);
+    created && injectHook('created', created, instance);
+    beforeMount && injectHook('beforeMount', beforeMount, instance);
+    mounted && injectHook('mounted', mounted, instance);
+    beforeUpdate && injectHook('beforeupdate', beforeUpdate, instance);
+    updated && injectHook('updated', updated, instance);
+    beforeUnmount && injectHook('beforeUnmount', beforeUnmount, instance);
+    unmounted && injectHook('unmounted', unmounted, instance);
+    // 创建一个通用的 hook 注册函数
+    function injectHook(type: string, hook: any, target: any) {
+      if (target) {
+        const hooks = target[type] || (target[type] = []);
+        hooks.push(hook);
+      }
     }
 
     /**
@@ -776,6 +797,14 @@ export function createRenderer(options: any) {
       }
     }
 
+    function onBeforeMount(fn: any) {
+      if (currentInstance) {
+        currentInstance.beforeMount.push(fn);
+      } else {
+        console.error('onBeforeMount 函数只能在 setup 中调用');
+      }
+    }
+
     function onMounted(fn: any) {
       if (currentInstance) {
         currentInstance.mounted.push(fn);
@@ -784,10 +813,45 @@ export function createRenderer(options: any) {
       }
     }
 
+    function onBeforeUpdate(fn: any) {
+      if (currentInstance) {
+        currentInstance.beforeUpdate.push(fn);
+      } else {
+        console.error('onBeforeUpdate 函数只能在 setup 中调用');
+      }
+    }
+
+    function onUpdated(fn: any) {
+      if (currentInstance) {
+        currentInstance.updated.push(fn);
+      } else {
+        console.error('onUpdated 函数只能在 setup 中调用');
+      }
+    }
+
+    function onBeforeUnmount(fn: any) {
+      if (currentInstance) {
+        currentInstance.unmount.push(fn);
+      } else {
+        console.error('onBeforeUnmount 函数只能在 setup 中调用');
+      }
+    }
+
+    function onUnmounted(fn: any) {
+      if (currentInstance) {
+        currentInstance.unmounted.push(fn);
+      } else {
+        console.error('onUnmounted 函数只能在 setup 中调用');
+      }
+    }
+
     // setupContext, 还可以有 emit 和 slots
     const setupContext = { attrs, emit, slots };
     // 在调用 setup 函数前 设置当前组件实例
     setCurrentInstance(instance);
+    // 选项式 API 的生命周期 beforeCreate 和 created 就是相当于 组合式 API 中的 setup 函数，
+    // 这个函数的执行时机就是在组件实例创建后、挂载前。这正好覆盖了 beforeCreate 和 created 之间的阶段。
+    instance.beforeCreate && instance.beforeCreate.forEach((hook: any) => hook.call(renderContext));
     // 调用 setup 函数，将只读版本的 props 作为第一个参数，避免用户修改 props ，将 setupContext 作为第二个参数传递
     const setupResult = setup(shallowReactive(instance.props), setupContext);
     // const setupResult = setup(instance.props, setupContext);
@@ -841,7 +905,7 @@ export function createRenderer(options: any) {
     })
 
     // 这里调用 created 钩子
-    created && created.call(renderContext);
+    instance.created && instance.created.forEach((hook: any) => hook.call(renderContext));
 
     // 执行渲染函数，获取组件的渲染内容，即 render 函数返回的虚拟 DOM.
     // 调用 render 函数时，将 this 设置为 state，从而可以在 render 函数内部使用 this 访问组件自身状态数据
@@ -852,7 +916,7 @@ export function createRenderer(options: any) {
       // 检查组件是否被挂载
       if (!instance.isMounted) {
         // 这里调用 beforeMounted 钩子
-        beforeMount && beforeMount.call(renderContext);
+        instance.beforeMount && instance.beforeMount.forEach((hook: any) => hook.call(renderContext));
         // 初次挂载，调用 patch 函数 第一个参数传 null 渲染组件
         patch(null, subTree, container, anchor);
         // 将组件的 isMounted 设置为 true，后续就直接更新组件
@@ -862,11 +926,11 @@ export function createRenderer(options: any) {
         instance.mounted && instance.mounted.forEach((hook: any) => hook.call(renderContext));
       } else {
         // 这里调用 beforeUpdate 钩子
-        beforeUpdate && beforeUpdate.call(renderContext);
+        instance.beforeUpdate && instance.beforeUpdate.forEach((hook: any) => hook.call(renderContext)); 
         // 更新组件，第一个参数为组件上一次渲染的子树
         patch(instance.subTree, subTree, container, anchor);
         // 这里调用 updated 钩子
-        updated && updated.call(renderContext);
+        instance.updated && instance.updated.forEach((hook: any) => hook.call(renderContext));
       }
       // 更新组件实例的子树
       instance.subTree = subTree

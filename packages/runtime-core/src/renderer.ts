@@ -203,7 +203,9 @@ export function createRenderer(options: any) {
         // 旧的存在，更新
         patchChildren(n1, n2, container, anchor);
       }
-    } else if (typeof type === 'object') {
+      // type ==> object 有状态组件
+      // type ==> function 函数式组件
+    } else if (typeof type === 'object' || typeof type === 'function') {
       // 是 object，描述的是组件
       if(!n1) {
         // 挂载组件
@@ -695,6 +697,10 @@ export function createRenderer(options: any) {
     if (vnode.type === 'Fragment') {
       vnode.children.forEach((c: any) => unmount(c));
       return;
+    } else if (vnode.type === 'object') {
+      // 对于组件的卸载，本质上是卸载组件所渲染的内容即 subTree
+      unmount(vnode.component.subTree);
+      return;
     }
     const parent = vnode.el.parentNode;
     if (parent) {
@@ -725,8 +731,17 @@ export function createRenderer(options: any) {
   // // 调用渲染器来渲染组件
   // renderer.render(CompVNode, document.querySelector('#app'))
   function mountComponent(vnode: any, container: any, anchor: any) {
+    // 检查是否是函数式组件
+    const isFunctional = typeof vnode.type === 'function';
     // 通过 vnode.type 获取组件的选项对象
-    const componentOptions = vnode.type;
+    let componentOptions = vnode.type;
+    // 是函数式组件，将 vnode.type 作为渲染函数，将 vnode.type.props 作为 props 选项
+    if (isFunctional) {
+      componentOptions = {
+        render: vnode.type,
+        props: vnode.type.props,
+      }
+    }
     // 获取组件的渲染函数
     let { render, data, setup, props: propsOptions,
       beforeCreate, created, beforeMount, mounted, beforeUpdate, updated, beforeUnmount, unmounted } = componentOptions;

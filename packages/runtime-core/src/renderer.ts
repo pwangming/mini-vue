@@ -1,6 +1,7 @@
 import { reactive, effect, shallowReactive } from '@mini-vue/reactivity'
 import { queueJob } from './scheduler.js';
 import { createAppAPI } from './apiCreateApp.js';
+import { currentInstance, setCurrentInstance } from './shared.js';
 // 通过传入一个对象，可以实现自定义渲染器，不依赖于特定的浏览器API
 export const renderer = createRenderer({
   createElement(tag: string) {
@@ -106,15 +107,6 @@ function shouldSetAsProps(el: any, key: string, value: any) {
 //   }
 // })
 
-// 全局变量，存储当前正在被初始化的组件实例
-let currentInstance: any = null;
-/**
- * 接受一个组件实例作为参数，并将该实例设置为 currentInstance
- * @param instance 组件实例
- */
-function setCurrentInstance(instance: any) {
-  currentInstance = instance;
-}
 
 // 创建渲染器
 export function createRenderer(options: any) {
@@ -208,8 +200,13 @@ export function createRenderer(options: any) {
     } else if (typeof type === 'object' || typeof type === 'function') {
       // 是 object，描述的是组件
       if(!n1) {
-        // 挂载组件
-        mountComponent(n2, container, anchor);
+        // 如果该组件已被 KeepAlive ，则不会重新挂载它，而是会调用 _activate 来激活它
+        if (n2.keptAlive) {
+          n2.keepAliveInstance._activate(n2, container, anchor);
+        } else {
+          // 挂载组件
+          mountComponent(n2, container, anchor);
+        }
       } else {
         // 更新组件
         patchComponent(n1, n2, anchor);
@@ -698,6 +695,11 @@ export function createRenderer(options: any) {
       vnode.children.forEach((c: any) => unmount(c));
       return;
     } else if (vnode.type === 'object') {
+      // 用 shouldKeepAlive 来判断组件是否应该被 KeepAlive
+      if (vnode.shouldKeepAlive) {
+        // 对于需要被 KeepAlive 的组件，不应该卸载它，应该调用该组件的父组件的 _deActivate 使其失活
+        vnode.keepAliveInstance._deActivate(vnode);
+      }
       // 对于组件的卸载，本质上是卸载组件所渲染的内容即 subTree
       unmount(vnode.component.subTree);
       return;
@@ -767,6 +769,8 @@ export function createRenderer(options: any) {
       subTree: null,
       // 将插槽添加到组件实例上
       slots,
+      // 只有 KeepAlive 组件的实例下会有这个属性
+      keepAliveCtx: null as any,
       // 在组件实例中添加 mounted 数组，用来存储通过 onMounted 函数注册的生命周期钩子函数
       created: [],
       mounted: [],
@@ -776,6 +780,19 @@ export function createRenderer(options: any) {
       beforeMount: [],
       beforeUpdate: [],
       beforeUnmount: []
+    }
+
+    const isKeepAlive = vnode.type.__isKeepAlive;
+    // 检查组件
+    if (isKeepAlive) {
+      // 在 KeepAlive 组件实例中添加 keepAliveCtx 对象
+      instance.keepAliveCtx = {
+        // move 用来移动一段 vnode 本质上是将组将渲染的内容移动到指定的容器中，即隐藏容器
+        move(vnode: any, container: any, anchor: any) {
+          insert(vnode.component.subTree.el, container, anchor);
+        },
+        createElement
+      }
     }
 
     beforeCreate && injectHook('beforeCreate', beforeCreate, instance);

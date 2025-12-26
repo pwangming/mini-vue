@@ -195,6 +195,19 @@ export function createRenderer(options: any) {
         // 旧的存在，更新
         patchChildren(n1, n2, container, anchor);
       }
+    } else if (typeof type === 'object' && type.__isTeleport) {
+      // 存在 __isTeleport 属性则代表是 Teleport 组件
+      // 调用 process 函数将控制权交接出去
+      // 传递给 process 函数的第五个参数是渲染器内部的一些方法
+      type.process(n1, n2, container, anchor, {
+        patch,
+        patchChildren,
+        unmount,
+        move(vnode: any, container: any, anchor: any) {
+          // 这里只考虑了普通元素，还有文本类型 Text、片段类型 Fragment
+          insert(vnode.component ? vnode.component.subTree.el : vnode.el, container, anchor);
+        }
+      })
       // type ==> object 有状态组件
       // type ==> function 函数式组件
     } else if (typeof type === 'object' || typeof type === 'function') {

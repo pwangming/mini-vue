@@ -254,8 +254,19 @@ export function createRenderer(options: any) {
         patchProps(el, key, null, vnode.props[key]);
       }
     }
+
+    // 判断一个 vnode 是否需要过渡
+    const needTransition = vnode.transition;
+    if (needTransition) {
+      // 调用 beforeEnter 钩子函数，将 dom 元素作为参数传递
+      vnode.transition.beforeEnter(el);
+    }
     // 挂载
     insert(el, container);
+    if (needTransition) {
+      // 调用 enter 钩子函数
+      vnode.transition.enter(el);
+    }
   }
 
   function patchElement(n1: any, n2: any, anchor: any) {
@@ -703,6 +714,7 @@ export function createRenderer(options: any) {
   }
 
   function unmount(vnode: any) {
+    const needTransition = vnode.transition;
     // 卸载时也需要判断，逐个卸载 children
     if (vnode.type === 'Fragment') {
       vnode.children.forEach((c: any) => unmount(c));
@@ -719,7 +731,15 @@ export function createRenderer(options: any) {
     }
     const parent = vnode.el.parentNode;
     if (parent) {
-      parent.removeChild(vnode.el);
+      // 将卸载动作封装到 performRemove 中
+      const performRemove = () => parent.removeChild(vnode.el);
+      if (needTransition) {
+        // 需要过渡处理则调用 leave 钩子函数，将 dom 和卸载函数做参数传递
+        vnode.transition.leave(vnode.el, performRemove);
+      } else {
+        // 不需要过渡处理，直接卸载
+        performRemove();
+      }
     }
   }
 
